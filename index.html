@@ -2,108 +2,152 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>ESP8266 Röle Kontrol Paneli</title>
+  <title>İnterkom Kontrol Paneli</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #f5f6fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: #2f3640;
+      color: white;
+      font-weight: bold;
+      align-items: center;
+    }
+
+    #wifiStatus span {
+      color: #44bd32;
+      margin-left: 5px;
+    }
+
+    #callCounter {
+      color: #fbc531;
+    }
+
+    main {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      margin: 0;
+      margin-top: 50px;
     }
-    h1 {
-      color: #2f3640;
-    }
-    .relay {
-      margin: 10px;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      background: #fff;
-      width: 200px;
-      text-align: center;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      margin: 5px;
+
+    .button {
+      padding: 20px 40px;
+      margin: 15px;
+      font-size: 18px;
       border: none;
-      border-radius: 8px;
+      border-radius: 12px;
       cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       transition: 0.3s;
     }
-    .on {
+
+    .start {
       background: #44bd32;
       color: white;
     }
-    .on:hover {
+
+    .start:hover {
       background: #2ecc71;
     }
-    .off {
+
+    .stop {
       background: #e84118;
       color: white;
     }
-    .off:hover {
+
+    .stop:hover {
       background: #c23616;
     }
+
     #status {
-      margin-top: 20px;
+      margin-top: 30px;
       font-weight: bold;
+      text-align: center;
+      font-size: 20px;
     }
   </style>
 </head>
 <body>
-  <h1>ESP8266 Röle Kontrol Paneli</h1>
+  <header>
+    <div id="wifiStatus">Wi-Fi durumu: <span>🟢 ONLINE</span></div>
+    <div id="callCounter">Yapılan Arama: 0</div>
+  </header>
 
-  <div class="relay">
-    <h3>Röle 1</h3>
-    <button class="on" onclick="publish('relay1','ON')">AÇ</button>
-    <button class="off" onclick="publish('relay1','OFF')">KAPAT</button>
-  </div>
-
-  <div class="relay">
-    <h3>Röle 2</h3>
-    <button class="on" onclick="publish('relay2','ON')">AÇ</button>
-    <button class="off" onclick="publish('relay2','OFF')">KAPAT</button>
-  </div>
+  <main>
+    <button class="button start" onclick="talk('relay1', true)">Konuşmayı Başlat</button>
+    <button class="button stop" onclick="talk('relay2', false)">Konuşmayı Kapat</button>
+  </main>
 
   <div id="status">🔴 Bağlantı yok</div>
 
   <script>
-    // 🔹 HiveMQ Cloud bilgilerini buraya yaz
+    let counter = 0;
+
     const options = {
-      username: "kemal123", // HiveMQ Cloud username
-      password: "Kemal12345",         // HiveMQ Cloud password
+      username: "kemal123",
+      password: "Kemal12345",
       clean: true,
       connectTimeout: 4000,
       reconnectPeriod: 4000
     };
 
-    // 🔹 WSS ile HiveMQ WebSocket bağlantısı
     const client = mqtt.connect("wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt", options);
-    // → XXXXXX kısmını HiveMQ cluster host’unla değiştir
+
+    const wifiDiv = document.getElementById("wifiStatus");
+    const statusDiv = document.getElementById("status");
 
     client.on("connect", () => {
       console.log("✅ HiveMQ'ya bağlandı!");
-      document.getElementById("status").innerHTML = "🟢 HiveMQ'ya bağlı";
+      statusDiv.innerHTML = "🟢 HiveMQ'ya bağlı";
+
+      client.subscribe("wifiStatus");
+    });
+
+    client.on("message", (topic, payload) => {
+      if(topic.toString() === "wifiStatus"){
+        const value = payload.toString();
+        if(value === "ONLINE"){
+          wifiDiv.innerHTML = 'Wi-Fi durumu: <span style="color:#44bd32">🟢 ONLINE</span>';
+        } else {
+          wifiDiv.innerHTML = 'Wi-Fi durumu: <span style="color:#e84118">🔴 OFFLINE</span>';
+        }
+      }
     });
 
     client.on("error", (err) => {
       console.error("❌ Bağlantı hatası: ", err);
-      document.getElementById("status").innerHTML = "🔴 Bağlantı hatası";
+      statusDiv.innerHTML = "🔴 Bağlantı hatası";
     });
 
     client.on("close", () => {
-      document.getElementById("status").innerHTML = "🔴 Bağlantı koptu";
+      statusDiv.innerHTML = "🔴 Bağlantı koptu";
     });
 
-    function publish(topic, message) {
-      client.publish(topic, message);
-      console.log("📩 Gönderildi:", topic, message);
+    function talk(topic, isStart) {
+      counter++;
+      document.getElementById("callCounter").innerText = "Yapılan Arama: " + counter;
+
+      client.publish(topic, "ON");
+      setTimeout(() => {
+        client.publish(topic, "OFF");
+      }, 2000);
+
+      if(isStart){
+        statusDiv.innerHTML = "🎤 Mikrofon Açık, Konuşabilirsiniz!";
+        statusDiv.style.color = "#44bd32";
+      } else {
+        statusDiv.innerHTML = "🔇 Mikrofon Kapalı, Konuşma Bitti!";
+        statusDiv.style.color = "#e84118";
+      }
     }
   </script>
 </body>
