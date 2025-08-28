@@ -12,51 +12,57 @@
     display:flex; flex-direction:column; align-items:center; min-height:100vh;
   }
   h1 { margin:20px 0; font-size:28px; color:#004d40; text-shadow:1px 1px 2px #ccc; }
-  
-  #statusBar {
-    display:flex; justify-content:space-around; align-items:center;
-    width:90%; max-width:500px;
-    font-size:20px; font-weight:bold; margin:20px 0;
+
+  /* Login ekran */
+  #loginScreen {
+    position:fixed; top:0; left:0; width:100%; height:100%; background:#004d40cc;
+    display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999;
   }
-  
-  #wifiState {
-    font-size:28px; font-weight:bold; transition: all 0.5s; }
-  
+  #loginBox {
+    background:white; padding:30px 40px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.3);
+    display:flex; flex-direction:column; gap:15px; width:90%; max-width:350px;
+  }
+  #loginBox input { padding:12px; font-size:18px; border-radius:10px; border:1px solid #ccc; }
+  #loginBox button { padding:12px; font-size:18px; background:#43a047; color:white; border:none; border-radius:10px; cursor:pointer; transition: transform 0.2s; }
+  #loginBox button:active{ transform:scale(0.95); }
+  #loginError { color:red; font-weight:bold; text-align:center; display:none; }
+
+  /* Panel */
+  #statusBar { display:flex; justify-content:space-around; align-items:center; width:90%; max-width:500px; font-size:20px; font-weight:bold; margin:20px 0; }
+  #wifiState { font-size:28px; font-weight:bold; transition: all 0.5s; }
   #callCount { font-size:26px; color:#00695c; transition: transform 0.3s; }
-  
-  #callButtons {
-    margin:40px 0;
-    display:flex; flex-direction:column; align-items:center; gap:20px;
-  }
-  
-  button {
-    font-size:24px; padding:20px 40px; border:none; border-radius:15px;
-    cursor:pointer; color:white; transition: transform 0.2s, background 0.3s, box-shadow 0.3s;
-    box-shadow:0 4px 8px rgba(0,0,0,0.2);
-  }
-  button:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,0,0.2); }
+
+  #callButtons { margin:40px 0; display:flex; flex-direction:column; align-items:center; gap:20px; }
+  button.controlBtn { font-size:24px; padding:20px 40px; border:none; border-radius:15px; cursor:pointer; color:white; transition: transform 0.2s, background 0.3s, box-shadow 0.3s; box-shadow:0 4px 8px rgba(0,0,0,0.2); }
+  button.controlBtn:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,0,0.2); }
   #startCall { background:#43a047; }
   #stopCall { background:#e53935; }
-  
-  #micStatus {
-    font-size:24px; margin-top:30px; min-height:30px;
-    font-weight:bold; text-align:center; transition: all 0.5s;
-  }
+
+  #micStatus { font-size:24px; margin-top:30px; min-height:30px; font-weight:bold; text-align:center; transition: all 0.5s; }
 
   /* Animasyonlar */
   .pulse { animation:pulseAnim 1s ease-out; }
-  @keyframes pulseAnim {
-    0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);}
-  }
+  @keyframes pulseAnim { 0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
 
   @media(max-width:600px){
-    button{ width:80%; font-size:22px; }
+    button.controlBtn{ width:80%; font-size:22px; }
     #statusBar{ flex-direction:column; gap:15px; }
   }
 </style>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
+
+<!-- Login Ekranı -->
+<div id="loginScreen">
+  <div id="loginBox">
+    <h2 style="text-align:center;">Giriş Yap</h2>
+    <input type="text" id="username" placeholder="Kullanıcı Adı">
+    <input type="password" id="password" placeholder="Şifre">
+    <button id="loginBtn">Giriş</button>
+    <div id="loginError">Kullanıcı adı veya şifre yanlış!</div>
+  </div>
+</div>
 
 <h1>İnterkom Kontrol Paneli</h1>
 
@@ -66,63 +72,90 @@
 </div>
 
 <div id="callButtons">
-  <button id="startCall">Konuşmayı Başlat</button>
-  <button id="stopCall">Konuşmayı Kapat</button>
+  <button id="startCall" class="controlBtn">Konuşmayı Başlat</button>
+  <button id="stopCall" class="controlBtn">Konuşmayı Kapat</button>
 </div>
 
 <div id="micStatus"></div>
 
 <script>
-let callCount = parseInt(localStorage.getItem('callCount') || 0);
-document.getElementById('callCount').innerText = callCount;
+const validUser = 'Admin';  // Kullanıcı adı
+const validPass = 'admin135';    // Şifre
 
-// MQTT Bağlantısı
-const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{username:'kemal123', password:'Kemal12345'});
+// Login işlemi
+const loginScreen = document.getElementById('loginScreen');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
 
-client.on('connect', function(){
-  console.log('MQTT Bağlandı');
-  client.subscribe('wifiStatus');
-  client.subscribe('micStatus');
-  client.subscribe('relay1');
-});
+if(localStorage.getItem('loggedIn')==='true'){
+  loginScreen.style.display='none';
+}
 
-client.on('message', function(topic, message){
-  const msg = message.toString();
-
-  if(topic === 'wifiStatus'){
-    let el = document.getElementById('wifiState');
-    el.innerText = msg;
-    if(msg==='BAĞLI'){ el.style.color='green'; } 
-    else { el.style.color='red'; }
-    el.classList.add('pulse');
-    setTimeout(()=>{el.classList.remove('pulse');},500);
-  }
-
-  if(topic === 'micStatus'){
-    let el = document.getElementById('micStatus');
-    el.innerText = (msg==='ON')?'Mikrofon Açık, Konuşabilirsiniz!':'Mikrofon Kapalı, Konuşma Bitti!';
-    el.style.color = (msg==='ON')?'green':'red';
-    el.classList.add('pulse');
-    setTimeout(()=>{el.classList.remove('pulse'); el.innerText='';},3000);
-  }
-
-  if(topic === 'relay1'){
-    callCount++;
-    localStorage.setItem('callCount', callCount);
-    let el = document.getElementById('callCount');
-    el.innerText = callCount;
-    el.classList.add('pulse');
-    setTimeout(()=>{el.classList.remove('pulse');},300);
+loginBtn.addEventListener('click', ()=>{
+  const u = document.getElementById('username').value;
+  const p = document.getElementById('password').value;
+  if(u===validUser && p===validPass){
+    loginScreen.style.display='none';
+    localStorage.setItem('loggedIn','true');
+    initPanel(); // Paneli başlat
+  } else {
+    loginError.style.display='block';
   }
 });
 
-// Buton olayları
-document.getElementById('startCall').addEventListener('click', ()=>{
-  client.publish('relay1','TRIG');
-});
-document.getElementById('stopCall').addEventListener('click', ()=>{
-  client.publish('relay2','TRIG');
-});
+// Panel fonksiyonu
+function initPanel(){
+  let callCount = parseInt(localStorage.getItem('callCount') || 0);
+  document.getElementById('callCount').innerText = callCount;
+
+  // MQTT bağlantısı
+  const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{username:'kemal123', password:'Kemal12345'});
+
+  client.on('connect', function(){
+    console.log('MQTT Bağlandı');
+    client.subscribe('wifiStatus');
+    client.subscribe('micStatus');
+    client.subscribe('relay1');
+  });
+
+  client.on('message', function(topic, message){
+    const msg = message.toString();
+
+    if(topic==='wifiStatus'){
+      let el = document.getElementById('wifiState');
+      el.innerText = msg;
+      if(msg==='BAĞLI'){ el.style.color='green'; } else { el.style.color='red'; }
+      el.classList.add('pulse');
+      setTimeout(()=>{el.classList.remove('pulse');},500);
+    }
+
+    if(topic==='micStatus'){
+      let el = document.getElementById('micStatus');
+      el.innerText = (msg==='ON')?'Mikrofon Açık, Konuşabilirsiniz!':'Mikrofon Kapalı, Konuşma Bitti!';
+      el.style.color = (msg==='ON')?'green':'red';
+      el.classList.add('pulse');
+      setTimeout(()=>{el.classList.remove('pulse'); el.innerText='';},3000);
+    }
+
+    if(topic==='relay1'){
+      callCount++;
+      localStorage.setItem('callCount', callCount);
+      let el = document.getElementById('callCount');
+      el.innerText = callCount;
+      el.classList.add('pulse');
+      setTimeout(()=>{el.classList.remove('pulse');},300);
+    }
+  });
+
+  // Butonlar
+  document.getElementById('startCall').addEventListener('click', ()=>{ client.publish('relay1','TRIG'); });
+  document.getElementById('stopCall').addEventListener('click', ()=>{ client.publish('relay2','TRIG'); });
+}
+
+// Sayfa yenilenirse login kontrolü
+if(localStorage.getItem('loggedIn')==='true'){
+  initPanel();
+}
 </script>
 
 </body>
