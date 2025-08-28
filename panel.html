@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>ESP8266 Röle Kontrol Paneli</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f6fa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      color: #2f3640;
+    }
+    .relay {
+      margin: 10px;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      background: #fff;
+      width: 200px;
+      text-align: center;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .on {
+      background: #44bd32;
+      color: white;
+    }
+    .on:hover {
+      background: #2ecc71;
+    }
+    .off {
+      background: #e84118;
+      color: white;
+    }
+    .off:hover {
+      background: #c23616;
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>ESP8266 Röle Kontrol Paneli</h1>
+  <div class="relay">
+    <h3>Röle 1</h3>
+    <button class="on" onclick="publish('relay1','ON')">AÇ</button>
+    <button class="off" onclick="publish('relay1','OFF')">KAPAT</button>
+  </div>
+
+  <div class="relay">
+    <h3>Röle 2</h3>
+    <button class="on" onclick="publish('relay2','ON')">AÇ</button>
+    <button class="off" onclick="publish('relay2','OFF')">KAPAT</button>
+  </div>
+
+  <div id="status">🔴 Bağlantı yok</div>
+
+  <script>
+    // 🔹 HiveMQ bilgilerini buraya yaz
+    const options = {
+      username: "kemal123",
+      password: "Kemal12345",
+      clean: true,
+      connectTimeout: 4000,
+      reconnectPeriod: 4000,
+    };
+
+    // 🔹 HiveMQ WebSocket adresi
+    const client  = mqtt.connect("wss://xxxxx.s1.eu.hivemq.cloud:8884/mqtt", options);
+
+    client.on("connect", () => {
+      console.log("✅ HiveMQ'ya bağlandı!");
+      document.getElementById("status").innerHTML = "🟢 HiveMQ'ya bağlı";
+    });
+
+    client.on("error", (err) => {
+      console.error("❌ Bağlantı hatası: ", err);
+      document.getElementById("status").innerHTML = "🔴 Bağlantı hatası";
+    });
+
+    client.on("close", () => {
+      document.getElementById("status").innerHTML = "🔴 Bağlantı koptu";
+    });
+
+    function publish(topic, message) {
+      client.publish(topic, message);
+      console.log("📩 Gönderildi:", topic, message);
+    }
+  </script>
+</body>
+</html>
