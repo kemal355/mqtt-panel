@@ -6,70 +6,23 @@
 <title>İnterkom Kontrol Paneli</title>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    margin:0; padding:0;
-    background:#f5f6fa;
-  }
-  header {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:10px 15px;
-    background:#2f3640;
-    color:white;
-    font-weight:bold;
-    flex-wrap:wrap;
-  }
+  body { font-family:Arial; margin:0; padding:0; background:#f5f6fa; display:flex; flex-direction:column; min-height:100vh; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:10px 15px; background:#2f3640; color:white; font-weight:bold; flex-wrap:wrap; }
   header div { font-size:16px; }
   #wifiStatus span { margin-left:5px; color:#44bd32; }
   #callCounter { color:#fbc531; }
 
-  main {
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    margin-top:50px;
-  }
-  .button {
-    padding:20px 50px;
-    margin:15px;
-    font-size:22px;
-    border:none;
-    border-radius:12px;
-    cursor:pointer;
-    box-shadow:0 2px 6px rgba(0,0,0,0.2);
-    transition:0.3s;
-    width:80%;
-    max-width:300px;
-  }
+  main { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; }
+  .button { padding:20px 50px; margin:15px; font-size:22px; border:none; border-radius:12px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.2); transition:0.3s; width:80%; max-width:300px; text-align:center; }
   .start { background:#44bd32; color:white; }
   .start:hover { background:#2ecc71; }
   .stop { background:#e84118; color:white; }
   .stop:hover { background:#c23616; }
 
-  #statusContainer {
-    margin-top:30px;
-    font-weight:bold;
-    text-align:right;
-    padding:10px 15px;
-  }
-  #statusContainer span { font-size:20px; display:block; }
+  #statusContainer { margin-top:20px; font-weight:bold; text-align:center; font-size:20px; }
+  #statusContainer span { display:block; margin-top:10px; font-size:22px; }
 
-  #networkAlert {
-    display:none;
-    position:fixed;
-    top:0; left:0;
-    width:100%; height:100%;
-    background-color:rgba(255,0,0,0.9);
-    color:white;
-    font-size:50px;
-    font-weight:bold;
-    text-align:center;
-    line-height:100vh;
-    z-index:9999;
-  }
+  #networkAlert { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(255,0,0,0.9); color:white; font-size:50px; font-weight:bold; text-align:center; line-height:100vh; z-index:9999; }
 </style>
 </head>
 <body>
@@ -77,23 +30,43 @@
 <header>
   <div id="hiveStatus">HiveMQ'ya Bağlı</div>
   <div id="wifiStatus">Wi-Fi durumu: <span>🟢 ONLINE</span></div>
-  <div id="callCounter">Yapılan Arama: 0</div>
+  <div id="callCounter">Gelen Çağrı Sayısı: 0</div>
 </header>
 
 <main>
   <button class="button start" onclick="talk('relay1', true)">Konuşmayı Başlat</button>
   <button class="button stop" onclick="talk('relay2', false)">Konuşmayı Kapat</button>
+  <div id="statusContainer">
+    İnterkom Durumu
+    <span id="micStatus">Mikrofon Kapalı</span>
+  </div>
 </main>
-
-<div id="statusContainer">
-  İnterkom Durumu
-  <span id="micStatus">Mikrofon Kapalı</span>
-</div>
 
 <div id="networkAlert">AĞ BAĞLANTISI YOK</div>
 
 <script>
-let counter = 0;
+/* ------------------- Kullanıcı Girişi ------------------- */
+const USERNAME = "admin";
+const PASSWORD = "1234";
+
+function checkLogin() {
+  const user = prompt("Kullanıcı Adı:");
+  const pass = prompt("Şifre:");
+  if(user !== toc || pass !== tocinterkom1){
+    alert("Hatalı kullanıcı adı veya şifre!");
+    window.location.href = "about:blank"; // Erişimi engelle
+  }
+}
+checkLogin();
+/* -------------------------------------------------------- */
+
+let counter = localStorage.getItem("callCounter") ? parseInt(localStorage.getItem("callCounter")) : 0;
+const callCounterDiv = document.getElementById("callCounter");
+callCounterDiv.innerText = "Gelen Çağrı Sayısı: " + counter;
+
+const wifiDiv = document.getElementById("wifiStatus");
+const networkAlert = document.getElementById("networkAlert");
+const micStatus = document.getElementById("micStatus");
 
 const options = {
   username:"kemal123",
@@ -105,20 +78,21 @@ const options = {
 
 const client = mqtt.connect("wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt", options);
 
-const wifiDiv = document.getElementById("wifiStatus");
-const networkAlert = document.getElementById("networkAlert");
-const micStatus = document.getElementById("micStatus");
-const callCounter = document.getElementById("callCounter");
+let lastWifiMsgTime = Date.now();
+const WIFI_TIMEOUT = 5000;
 
 client.on("connect", () => {
   console.log("✅ HiveMQ'ya bağlandı!");
   client.subscribe("wifiStatus");
+  client.subscribe("micStatus");
 });
 
 client.on("message", (topic, payload) => {
-  if(topic.toString() === "wifiStatus"){
-    const value = payload.toString();
-    if(value === "ONLINE"){
+  const message = payload.toString();
+
+  if(topic === "wifiStatus"){
+    lastWifiMsgTime = Date.now();
+    if(message === "ONLINE"){
       wifiDiv.innerHTML = 'Wi-Fi durumu: <span style="color:#44bd32">🟢 ESP internete bağlı</span>';
       networkAlert.style.display="none";
     } else {
@@ -126,25 +100,32 @@ client.on("message", (topic, payload) => {
       networkAlert.style.display="block";
     }
   }
+
+  if(topic === "micStatus"){
+    if(message === "ON"){
+      micStatus.innerText="Mikrofon Açık, Konuşabilirsiniz!";
+      micStatus.style.color="#44bd32";
+    } else {
+      micStatus.innerText="Mikrofon Kapalı, Konuşma Bitti!";
+      micStatus.style.color="#e84118";
+    }
+  }
 });
 
-client.on("error", (err) => { console.error(err); });
-client.on("close", () => { networkAlert.style.display="block"; });
+setInterval(()=>{
+  if(Date.now() - lastWifiMsgTime > WIFI_TIMEOUT){
+    wifiDiv.innerHTML = 'Wi-Fi durumu: <span style="color:#e84118">🔴 ESP bağlantısı yok</span>';
+    networkAlert.style.display="block";
+  }
+}, 1000);
 
 function talk(topic, isStart){
   counter++;
-  callCounter.innerText = "Yapılan Arama: "+counter;
+  callCounterDiv.innerText = "Gelen Çağrı Sayısı: "+counter;
+  localStorage.setItem("callCounter", counter);
 
   client.publish(topic,"ON");
   setTimeout(()=>{ client.publish(topic,"OFF"); },2000);
-
-  if(isStart){
-    micStatus.innerText="Mikrofon Açık, Konuşabilirsiniz!";
-    micStatus.style.color="#44bd32";
-  } else{
-    micStatus.innerText="Mikrofon Kapalı, Konuşma Bitti!";
-    micStatus.style.color="#e84118";
-  }
 }
 </script>
 
