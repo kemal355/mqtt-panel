@@ -131,7 +131,7 @@ client.on('message', function(topic, message){
     if(msg === 'ON'){
       el.innerText = 'Mikrofon Açık, Konuşabilirsiniz!';
     } else if(msg === 'OFF'){
-      el.innerText = 'Mikrofon Kapalı, Konuşma Bitti!';
+      el.innerText = 'Mikrofon Kapalı, Konuşma Sonlandı!';
     }
     el.style.opacity = '1';
     setTimeout(()=>{el.style.opacity='0';}, 3000);
