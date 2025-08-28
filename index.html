@@ -2,74 +2,89 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>İnterkom Kontrol Paneli</title>
 <style>
-  body { font-family: Arial; text-align:center; margin-top:50px; }
-  #wifi { font-weight:bold; margin-bottom:20px; }
-  #callCount { font-size:24px; margin:20px 0; }
-  button { font-size:18px; padding:10px 20px; margin:10px; }
-  #micStatus { font-size:20px; margin-top:20px; color:blue; }
+  body { font-family: Arial; text-align:center; background:#f2f2f2; margin:0; padding:0; }
+  h1 { margin-top:20px; font-size:24px; }
+  #statusBar { display:flex; justify-content:space-around; align-items:center; margin:20px; font-size:18px; }
+  #wifiState { font-weight:bold; }
+  #callButtons { margin:30px 0; }
+  button { font-size:20px; padding:15px 25px; margin:10px; border:none; border-radius:10px; cursor:pointer; color:white; }
+  #startCall { background:green; }
+  #stopCall { background:red; }
+  #micStatus { margin-top:20px; font-size:20px; color:#0044cc; min-height:24px; }
+  #callCount { font-size:22px; margin-top:10px; }
+  @media(max-width:600px){
+    button { width:80%; font-size:22px; }
+  }
 </style>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
 
 <h1>İnterkom Kontrol Paneli</h1>
-<div id="wifi">WiFi Durumu: <span id="wifiState">Bağlanıyor...</span></div>
-<div id="callCount">Gelen Çağrı Sayısı: <span id="count">0</span></div>
 
-<button id="startCall">Konuşmayı Başlat</button>
-<button id="stopCall">Konuşmayı Kapat</button>
+<div id="statusBar">
+  <div>WiFi: <span id="wifiState">Bağlanıyor...</span></div>
+  <div>Gelen Çağrı Sayısı: <span id="callCount">0</span></div>
+</div>
+
+<div id="callButtons">
+  <button id="startCall">Konuşmayı Başlat</button>
+  <button id="stopCall">Konuşmayı Kapat</button>
+</div>
 
 <div id="micStatus"></div>
 
 <script>
-  // Sayaç localStorage ile
-  let count = localStorage.getItem('callCount') || 0;
-  document.getElementById('count').innerText = count;
+let callCount = localStorage.getItem('callCount') || 0;
+document.getElementById('callCount').innerText = callCount;
 
-  // MQTT bağlantısı
-  const client  = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt', {
-    username:'kemal123',
-    password:'Kemal12345'
-  });
+const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{
+  username:'kemal123',
+  password:'Kemal12345'
+});
 
-  client.on('connect', function () {
-    console.log('MQTT bağlandı');
-    client.subscribe('wifiStatus');
-    client.subscribe('micStatus');
-    client.subscribe('relay1');
-  });
+client.on('connect', function(){
+  console.log('MQTT bağlandı');
+  client.subscribe('wifiStatus');
+  client.subscribe('micStatus');
+  client.subscribe('relay1');
+});
 
-  client.on('message', function (topic, message) {
-    const msg = message.toString();
-    if(topic === 'wifiStatus'){
-      document.getElementById('wifiState').innerText = msg;
-      document.getElementById('wifiState').style.color = (msg === 'ONLINE') ? 'green' : 'red';
+client.on('message', function(topic, message){
+  const msg = message.toString();
+
+  if(topic === 'wifiStatus'){
+    document.getElementById('wifiState').innerText = msg;
+    document.getElementById('wifiState').style.color = (msg === 'Bağlı') ? 'green' : 'red';
+  }
+
+  if(topic === 'micStatus'){
+    if(msg === 'ON'){
+      document.getElementById('micStatus').innerText = 'Mikrofon Açık, Konuşabilirsiniz!';
+    } else if(msg === 'OFF'){
+      document.getElementById('micStatus').innerText = 'Mikrofon Kapalı, Konuşma Bitti!';
     }
-    if(topic === 'micStatus'){
-      if(msg === 'ON'){
-        document.getElementById('micStatus').innerText = 'Mikrofon Açık, Konuşabilirsiniz!';
-      } else {
-        document.getElementById('micStatus').innerText = 'Mikrofon Kapalı, Konuşma Bitti!';
-      }
-      setTimeout(()=>{ document.getElementById('micStatus').innerText = ''; }, 3000);
-    }
-    if(topic === 'relay1'){
-      count++;
-      localStorage.setItem('callCount', count);
-      document.getElementById('count').innerText = count;
-    }
-  });
+    setTimeout(()=>{ document.getElementById('micStatus').innerText=''; },3000);
+  }
 
-  document.getElementById('startCall').addEventListener('click', ()=>{
-    client.publish('relay1','TRIG'); // Tek tetik
-  });
+  if(topic === 'relay1'){
+    callCount++;
+    localStorage.setItem('callCount', callCount);
+    document.getElementById('callCount').innerText = callCount;
+  }
+});
 
-  document.getElementById('stopCall').addEventListener('click', ()=>{
-    client.publish('relay2','TRIG');
-  });
+document.getElementById('startCall').addEventListener('click', ()=>{
+  client.publish('relay1','TRIG');
+});
 
+document.getElementById('stopCall').addEventListener('click', ()=>{
+  client.publish('relay2','TRIG');
+});
 </script>
+
 </body>
 </html>
