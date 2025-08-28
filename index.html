@@ -7,7 +7,7 @@
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <style>
   body { font-family:Arial; margin:0; padding:0; background:#f5f6fa; display:flex; flex-direction:column; min-height:100vh; }
-  
+
   /* Login Form */
   #loginDiv { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; }
   #loginDiv input { padding:10px; margin:5px; width:200px; font-size:16px; }
@@ -57,7 +57,7 @@
     <button class="button stop" onclick="talk('relay2', false)">Konuşmayı Kapat</button>
     <div id="statusContainer">
       İnterkom Durumu
-      <span id="micStatus">Mikrofon Kapalı</span>
+      <span id="micStatus"></span>
     </div>
   </main>
 </div>
@@ -141,12 +141,15 @@ client.on("message", (topic, payload) => {
 
   if(topic === "micStatus"){
     if(message === "ON"){
-      micStatus.innerText="Mikrofon Açık!";
+      micStatus.innerText="Mikrofon Açık, Konuşabilirsiniz!";
       micStatus.style.color="#44bd32";
     } else {
-      micStatus.innerText="Mikrofon Kapalı!";
+      micStatus.innerText="Mikrofon Kapalı, Konuşma Bitti!";
       micStatus.style.color="#e84118";
     }
+
+    // 3 saniye sonra kaybolsun
+    setTimeout(()=> { micStatus.innerText = ""; }, 3000);
   }
 });
 
@@ -164,6 +167,16 @@ function talk(topic, isStart){
 
   client.publish(topic,"ON");
   setTimeout(()=>{ client.publish(topic,"OFF"); },2000);
+
+  // Geçici Mikrofon yazısı
+  if(isStart){
+    micStatus.innerText = "Mikrofon Açıldı!";
+    micStatus.style.color="#44bd32";
+  } else {
+    micStatus.innerText = "Mikrofon Kapatıldı!";
+    micStatus.style.color="#e84118";
+  }
+  setTimeout(()=>{ micStatus.innerText = ""; }, 3000);
 }
 </script>
 
