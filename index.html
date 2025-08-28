@@ -65,19 +65,35 @@
 <div id="networkAlert">AĞ BAĞLANTISI YOK</div>
 
 <script>
-/* ------------------- Kullanıcı Girişi ------------------- */
-const USERNAME = "admin";
+/* ------------------- Kullanıcı Girişi + Otomatik ------------------- */
+const USERNAME = "Admin";
 const PASSWORD = "admin135";
 
 function checkLogin(){
+  const stored = localStorage.getItem("loggedIn");
+  if(stored === "true"){
+    document.getElementById("loginDiv").style.display="none";
+    document.getElementById("panelDiv").style.display="flex";
+    return;
+  }
+
   const u = document.getElementById("user").value;
   const p = document.getElementById("pass").value;
 
   if(u === USERNAME && p === PASSWORD){
+    localStorage.setItem("loggedIn", "true");
     document.getElementById("loginDiv").style.display="none";
     document.getElementById("panelDiv").style.display="flex";
   } else{
     alert("Hatalı kullanıcı adı veya şifre!");
+  }
+}
+
+// Sayfa açıldığında kontrol et
+window.onload = () => {
+  if(localStorage.getItem("loggedIn") === "true"){
+    document.getElementById("loginDiv").style.display="none";
+    document.getElementById("panelDiv").style.display="flex";
   }
 }
 /* -------------------------------------------------------- */
@@ -125,10 +141,10 @@ client.on("message", (topic, payload) => {
 
   if(topic === "micStatus"){
     if(message === "ON"){
-      micStatus.innerText="Mikrofon Açık, Konuşabilirsiniz!";
+      micStatus.innerText="Mikrofon Açık!";
       micStatus.style.color="#44bd32";
     } else {
-      micStatus.innerText="Mikrofon Kapalı, Konuşma Bitti!";
+      micStatus.innerText="Mikrofon Kapalı!";
       micStatus.style.color="#e84118";
     }
   }
