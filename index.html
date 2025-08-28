@@ -5,18 +5,73 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>İnterkom Kontrol Paneli</title>
 <style>
-  body { font-family: Arial; text-align:center; background:#f2f2f2; margin:0; padding:0; }
-  h1 { margin-top:20px; font-size:24px; }
-  #statusBar { display:flex; justify-content:space-around; align-items:center; margin:20px; font-size:18px; }
-  #wifiState { font-weight:bold; }
-  #callButtons { margin:30px 0; }
-  button { font-size:20px; padding:15px 25px; margin:10px; border:none; border-radius:10px; cursor:pointer; color:white; }
-  #startCall { background:green; }
-  #stopCall { background:red; }
-  #micStatus { margin-top:20px; font-size:20px; color:#0044cc; min-height:24px; }
-  #callCount { font-size:22px; margin-top:10px; }
+  body {
+    font-family: 'Arial', sans-serif;
+    text-align: center;
+    margin: 0; padding: 0;
+    background: #f4f6f8;
+  }
+
+  h1 {
+    margin-top: 20px;
+    font-size: 26px;
+    color: #333;
+  }
+
+  #statusBar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin: 25px 10px;
+    font-size: 20px;
+    font-weight: bold;
+  }
+
+  #wifiState {
+    font-size: 24px;
+    font-weight: bold;
+    color: gray;
+    transition: color 0.5s, transform 0.3s;
+  }
+
+  #callCount {
+    font-size: 26px;
+    color: #222;
+  }
+
+  #callButtons {
+    margin: 40px 0;
+  }
+
+  button {
+    font-size: 22px;
+    padding: 15px 35px;
+    margin: 15px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    color: white;
+    transition: transform 0.2s;
+  }
+
+  button:active {
+    transform: scale(0.95);
+  }
+
+  #startCall { background: #28a745; }
+  #stopCall { background: #dc3545; }
+
+  #micStatus {
+    margin-top: 25px;
+    font-size: 22px;
+    color: #0044cc;
+    min-height: 28px;
+    transition: opacity 0.5s;
+  }
+
   @media(max-width:600px){
-    button { width:80%; font-size:22px; }
+    button { width: 80%; font-size: 24px; }
+    #statusBar { flex-direction: column; gap: 15px; }
   }
 </style>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -26,7 +81,7 @@
 <h1>İnterkom Kontrol Paneli</h1>
 
 <div id="statusBar">
-  <div>WiFi: <span id="wifiState">Bağlanıyor...</span></div>
+  <div>WiFi: <span id="wifiState">BAĞLANIYOR...</span></div>
   <div>Gelen Çağrı Sayısı: <span id="callCount">0</span></div>
 </div>
 
@@ -57,17 +112,29 @@ client.on('message', function(topic, message){
   const msg = message.toString();
 
   if(topic === 'wifiStatus'){
-    document.getElementById('wifiState').innerText = msg;
-    document.getElementById('wifiState').style.color = (msg === 'Bağlı') ? 'green' : 'red';
+    let el = document.getElementById('wifiState');
+    if(msg === 'Bağlı'){
+      el.innerText = 'BAĞLI';
+      el.style.color = 'green';
+      el.style.transform = 'scale(1.2)';
+      setTimeout(()=>{el.style.transform='scale(1)';}, 300);
+    } else {
+      el.innerText = 'BAĞLI DEĞİL';
+      el.style.color = 'red';
+      el.style.transform = 'scale(1.2)';
+      setTimeout(()=>{el.style.transform='scale(1)';}, 300);
+    }
   }
 
   if(topic === 'micStatus'){
+    let el = document.getElementById('micStatus');
     if(msg === 'ON'){
-      document.getElementById('micStatus').innerText = 'Mikrofon Açık, Konuşabilirsiniz!';
+      el.innerText = 'Mikrofon Açık, Konuşabilirsiniz!';
     } else if(msg === 'OFF'){
-      document.getElementById('micStatus').innerText = 'Mikrofon Kapalı, Konuşma Bitti!';
+      el.innerText = 'Mikrofon Kapalı, Konuşma Bitti!';
     }
-    setTimeout(()=>{ document.getElementById('micStatus').innerText=''; },3000);
+    el.style.opacity = '1';
+    setTimeout(()=>{el.style.opacity='0';}, 3000);
   }
 
   if(topic === 'relay1'){
