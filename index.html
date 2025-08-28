@@ -7,6 +7,15 @@
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <style>
   body { font-family:Arial; margin:0; padding:0; background:#f5f6fa; display:flex; flex-direction:column; min-height:100vh; }
+  
+  /* Login Form */
+  #loginDiv { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; }
+  #loginDiv input { padding:10px; margin:5px; width:200px; font-size:16px; }
+  #loginDiv button { padding:10px 20px; font-size:16px; cursor:pointer; }
+
+  /* Panel */
+  #panelDiv { display:none; flex-direction:column; min-height:100vh; }
+
   header { display:flex; justify-content:space-between; align-items:center; padding:10px 15px; background:#2f3640; color:white; font-weight:bold; flex-wrap:wrap; }
   header div { font-size:16px; }
   #wifiStatus span { margin-left:5px; color:#44bd32; }
@@ -27,37 +36,50 @@
 </head>
 <body>
 
-<header>
-  <div id="hiveStatus">HiveMQ'ya Bağlı</div>
-  <div id="wifiStatus">Wi-Fi durumu: <span>🟢 ONLINE</span></div>
-  <div id="callCounter">Gelen Çağrı Sayısı: 0</div>
-</header>
+<!-- Login Form -->
+<div id="loginDiv">
+  <h2>İnterkom Panel Girişi</h2>
+  <input id="user" placeholder="Kullanıcı Adı"><br>
+  <input id="pass" placeholder="Şifre" type="password"><br>
+  <button onclick="checkLogin()">Giriş Yap</button>
+</div>
 
-<main>
-  <button class="button start" onclick="talk('relay1', true)">Konuşmayı Başlat</button>
-  <button class="button stop" onclick="talk('relay2', false)">Konuşmayı Kapat</button>
-  <div id="statusContainer">
-    İnterkom Durumu
-    <span id="micStatus">Mikrofon Kapalı</span>
-  </div>
-</main>
+<!-- Panel -->
+<div id="panelDiv">
+  <header>
+    <div id="hiveStatus">HiveMQ'ya Bağlı</div>
+    <div id="wifiStatus">Wi-Fi durumu: <span>🟢 ONLINE</span></div>
+    <div id="callCounter">Gelen Çağrı Sayısı: 0</div>
+  </header>
+
+  <main>
+    <button class="button start" onclick="talk('relay1', true)">Konuşmayı Başlat</button>
+    <button class="button stop" onclick="talk('relay2', false)">Konuşmayı Kapat</button>
+    <div id="statusContainer">
+      İnterkom Durumu
+      <span id="micStatus">Mikrofon Kapalı</span>
+    </div>
+  </main>
+</div>
 
 <div id="networkAlert">AĞ BAĞLANTISI YOK</div>
 
 <script>
 /* ------------------- Kullanıcı Girişi ------------------- */
 const USERNAME = "admin";
-const PASSWORD = "1234";
+const PASSWORD = "admin135";
 
-function checkLogin() {
-  const user = prompt("Kullanıcı Adı:");
-  const pass = prompt("Şifre:");
-  if(user !== toc || pass !== tocinterkom1){
+function checkLogin(){
+  const u = document.getElementById("user").value;
+  const p = document.getElementById("pass").value;
+
+  if(u === USERNAME && p === PASSWORD){
+    document.getElementById("loginDiv").style.display="none";
+    document.getElementById("panelDiv").style.display="flex";
+  } else{
     alert("Hatalı kullanıcı adı veya şifre!");
-    window.location.href = "about:blank"; // Erişimi engelle
   }
 }
-checkLogin();
 /* -------------------------------------------------------- */
 
 let counter = localStorage.getItem("callCounter") ? parseInt(localStorage.getItem("callCounter")) : 0;
