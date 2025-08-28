@@ -7,71 +7,51 @@
 <style>
   body {
     font-family: 'Arial', sans-serif;
-    text-align: center;
-    margin: 0; padding: 0;
-    background: #f4f6f8;
+    margin:0; padding:0;
+    background: linear-gradient(to bottom, #e0f7fa, #80deea);
+    display:flex; flex-direction:column; align-items:center; min-height:100vh;
   }
-
-  h1 {
-    margin-top: 20px;
-    font-size: 26px;
-    color: #333;
-  }
-
+  h1 { margin:20px 0; font-size:28px; color:#004d40; text-shadow:1px 1px 2px #ccc; }
+  
   #statusBar {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    margin: 25px 10px;
-    font-size: 20px;
-    font-weight: bold;
+    display:flex; justify-content:space-around; align-items:center;
+    width:90%; max-width:500px;
+    font-size:20px; font-weight:bold; margin:20px 0;
   }
-
+  
   #wifiState {
-    font-size: 24px;
-    font-weight: bold;
-    color: gray;
-    transition: color 0.5s, transform 0.3s;
-  }
-
-  #callCount {
-    font-size: 26px;
-    color: #222;
-  }
-
+    font-size:28px; font-weight:bold; transition: all 0.5s; }
+  
+  #callCount { font-size:26px; color:#00695c; transition: transform 0.3s; }
+  
   #callButtons {
-    margin: 40px 0;
+    margin:40px 0;
+    display:flex; flex-direction:column; align-items:center; gap:20px;
   }
-
+  
   button {
-    font-size: 22px;
-    padding: 15px 35px;
-    margin: 15px;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    color: white;
-    transition: transform 0.2s;
+    font-size:24px; padding:20px 40px; border:none; border-radius:15px;
+    cursor:pointer; color:white; transition: transform 0.2s, background 0.3s, box-shadow 0.3s;
+    box-shadow:0 4px 8px rgba(0,0,0,0.2);
   }
-
-  button:active {
-    transform: scale(0.95);
-  }
-
-  #startCall { background: #28a745; }
-  #stopCall { background: #dc3545; }
-
+  button:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,0,0.2); }
+  #startCall { background:#43a047; }
+  #stopCall { background:#e53935; }
+  
   #micStatus {
-    margin-top: 25px;
-    font-size: 22px;
-    color: #0044cc;
-    min-height: 28px;
-    transition: opacity 0.5s;
+    font-size:24px; margin-top:30px; min-height:30px;
+    font-weight:bold; text-align:center; transition: all 0.5s;
+  }
+
+  /* Animasyonlar */
+  .pulse { animation:pulseAnim 1s ease-out; }
+  @keyframes pulseAnim {
+    0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);}
   }
 
   @media(max-width:600px){
-    button { width: 80%; font-size: 24px; }
-    #statusBar { flex-direction: column; gap: 15px; }
+    button{ width:80%; font-size:22px; }
+    #statusBar{ flex-direction:column; gap:15px; }
   }
 </style>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -93,16 +73,14 @@
 <div id="micStatus"></div>
 
 <script>
-let callCount = localStorage.getItem('callCount') || 0;
+let callCount = parseInt(localStorage.getItem('callCount') || 0);
 document.getElementById('callCount').innerText = callCount;
 
-const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{
-  username:'kemal123',
-  password:'Kemal12345'
-});
+// MQTT Bağlantısı
+const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{username:'kemal123', password:'Kemal12345'});
 
 client.on('connect', function(){
-  console.log('MQTT bağlandı');
+  console.log('MQTT Bağlandı');
   client.subscribe('wifiStatus');
   client.subscribe('micStatus');
   client.subscribe('relay1');
@@ -113,41 +91,35 @@ client.on('message', function(topic, message){
 
   if(topic === 'wifiStatus'){
     let el = document.getElementById('wifiState');
-    if(msg === 'Bağlı'){
-      el.innerText = 'BAĞLI';
-      el.style.color = 'green';
-      el.style.transform = 'scale(1.2)';
-      setTimeout(()=>{el.style.transform='scale(1)';}, 300);
-    } else {
-      el.innerText = 'BAĞLI DEĞİL';
-      el.style.color = 'red';
-      el.style.transform = 'scale(1.2)';
-      setTimeout(()=>{el.style.transform='scale(1)';}, 300);
-    }
+    el.innerText = msg;
+    if(msg==='BAĞLI'){ el.style.color='green'; } 
+    else { el.style.color='red'; }
+    el.classList.add('pulse');
+    setTimeout(()=>{el.classList.remove('pulse');},500);
   }
 
   if(topic === 'micStatus'){
     let el = document.getElementById('micStatus');
-    if(msg === 'ON'){
-      el.innerText = 'Mikrofon Açık, Konuşabilirsiniz!';
-    } else if(msg === 'OFF'){
-      el.innerText = 'Mikrofon Kapalı, Konuşma Sonlandı!';
-    }
-    el.style.opacity = '1';
-    setTimeout(()=>{el.style.opacity='0';}, 3000);
+    el.innerText = (msg==='ON')?'Mikrofon Açık, Konuşabilirsiniz!':'Mikrofon Kapalı, Konuşma Bitti!';
+    el.style.color = (msg==='ON')?'green':'red';
+    el.classList.add('pulse');
+    setTimeout(()=>{el.classList.remove('pulse'); el.innerText='';},3000);
   }
 
   if(topic === 'relay1'){
     callCount++;
     localStorage.setItem('callCount', callCount);
-    document.getElementById('callCount').innerText = callCount;
+    let el = document.getElementById('callCount');
+    el.innerText = callCount;
+    el.classList.add('pulse');
+    setTimeout(()=>{el.classList.remove('pulse');},300);
   }
 });
 
+// Buton olayları
 document.getElementById('startCall').addEventListener('click', ()=>{
   client.publish('relay1','TRIG');
 });
-
 document.getElementById('stopCall').addEventListener('click', ()=>{
   client.publish('relay2','TRIG');
 });
