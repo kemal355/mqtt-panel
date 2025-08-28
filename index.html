@@ -17,6 +17,8 @@
   #loginError { color:red; font-weight:bold; text-align:center; display:none; }
 
   /* Panel */
+  #panel { display:none; width:100%; flex-direction:column; align-items:center; }
+
   #statusBar { display:flex; justify-content:space-around; align-items:center; width:90%; max-width:500px; font-size:20px; font-weight:bold; margin:20px 0; }
   #wifiState { font-size:28px; font-weight:bold; transition: all 0.5s; }
   #callCount { font-size:26px; color:#00695c; transition: transform 0.3s; }
@@ -29,7 +31,6 @@
 
   #micStatus { font-size:24px; margin-top:30px; min-height:30px; font-weight:bold; text-align:center; transition: all 0.5s; }
 
-  /* Animasyonlar */
   .pulse { animation:pulseAnim 1s ease-out; }
   @keyframes pulseAnim { 0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
 
@@ -53,6 +54,8 @@
   </div>
 </div>
 
+<!-- Panel -->
+<div id="panel">
 <h1>İnterkom Kontrol Paneli</h1>
 
 <div id="statusBar">
@@ -66,33 +69,20 @@
 </div>
 
 <div id="micStatus"></div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', ()=> {
   const validUser = 'Admin';
   const validPass = 'admin135';
+
   const loginScreen = document.getElementById('loginScreen');
   const loginBtn = document.getElementById('loginBtn');
   const loginError = document.getElementById('loginError');
-
-  if(localStorage.getItem('loggedIn')==='true'){
-    loginScreen.style.display='none';
-    initPanel();
-  }
-
-  loginBtn.addEventListener('click', ()=>{
-    const u = document.getElementById('username').value;
-    const p = document.getElementById('password').value;
-    if(u===validUser && p===validPass){
-      loginScreen.style.display='none';
-      localStorage.setItem('loggedIn','true');
-      initPanel();
-    } else {
-      loginError.style.display='block';
-    }
-  });
+  const panel = document.getElementById('panel');
 
   function initPanel(){
+    panel.style.display='flex'; // paneli göster
     let callCount = parseInt(localStorage.getItem('callCount') || 0);
     document.getElementById('callCount').innerText = callCount;
 
@@ -139,6 +129,25 @@ document.addEventListener('DOMContentLoaded', ()=> {
     document.getElementById('startCall').addEventListener('click', ()=>{ client.publish('relay1','TRIG'); });
     document.getElementById('stopCall').addEventListener('click', ()=>{ client.publish('relay2','TRIG'); });
   }
+
+  // Daha önce giriş yapılmışsa paneli göster
+  if(localStorage.getItem('loggedIn')==='true'){
+    loginScreen.style.display='none';
+    initPanel();
+  }
+
+  // Login kontrolü
+  loginBtn.addEventListener('click', ()=>{
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    if(u===validUser && p===validPass){
+      loginScreen.style.display='none';
+      localStorage.setItem('loggedIn','true');
+      initPanel();
+    } else {
+      loginError.style.display='block';
+    }
+  });
 });
 </script>
 
