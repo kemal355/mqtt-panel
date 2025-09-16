@@ -8,24 +8,28 @@
   body { font-family: Arial,sans-serif; margin:0; padding:20px; background:#f0f8ff; display:flex; flex-direction:column; align-items:center; }
   h1 { color:#004d40; }
   
-  #incomingCall { display:none; padding:20px; background:#ffcccb; border-radius:15px; margin-bottom:20px; font-size:22px; font-weight:bold; text-align:center; animation: pulseAnim 1s infinite; }
+  #incomingCall { display:none; padding:20px; background:#ff0000; color:white; border-radius:15px; margin-bottom:20px; font-size:22px; font-weight:bold; text-align:center; animation: pulseAnim 1s infinite; }
+  #inCall { display:none; padding:20px; background:#4caf50; color:white; border-radius:15px; margin-bottom:20px; font-size:22px; font-weight:bold; text-align:center; }
 
   button { font-size:20px; padding:12px 30px; margin:10px; border:none; border-radius:10px; cursor:pointer; }
   #acceptCall { background:#43a047; color:white; }
-  #rejectCall { background:#e53935; color:white; }
+  #rejectCall, #endCall { background:#e53935; color:white; }
 
   #micVisualizer { width:200px; height:50px; background:#ccc; margin-top:20px; border-radius:5px; overflow:hidden; }
   #micBar { height:100%; width:0%; background:#43a047; transition: width 0.1s; }
 
-  @keyframes pulseAnim { 0%{opacity:0.7;} 50%{opacity:1;} 100%{opacity:0.7;} }
+  @keyframes pulseAnim { 0%{opacity:0.5;} 50%{opacity:1;} 100%{opacity:0.5;} }
 </style>
 </head>
 <body>
 
 <h1>Phone2 Panel</h1>
 <div id="incomingCall">İNTERKOM ÇALIYOR!</div>
+<div id="inCall">Konuşabilirsiniz</div>
+
 <button id="acceptCall" style="display:none;">Görüşmeyi Kabul Et</button>
 <button id="rejectCall" style="display:none;">Görüşmeyi Reddet</button>
+<button id="endCall" style="display:none;">Görüşmeyi Sonlandır</button>
 
 <div id="micVisualizer"><div id="micBar"></div></div>
 
@@ -39,8 +43,10 @@ let localStream;
 
 const remoteAudio = document.getElementById('remoteAudio');
 const incomingDiv = document.getElementById('incomingCall');
+const inCallDiv = document.getElementById('inCall');
 const acceptBtn = document.getElementById('acceptCall');
 const rejectBtn = document.getElementById('rejectCall');
+const endBtn = document.getElementById('endCall');
 const ringTone = document.getElementById('ringTone');
 const micBar = document.getElementById('micBar');
 
@@ -119,8 +125,10 @@ function endCall(){
   micBar.style.width='0%';
 
   incomingDiv.style.display='none';
+  inCallDiv.style.display='none';
   acceptBtn.style.display='none';
   rejectBtn.style.display='none';
+  endBtn.style.display='none';
 
   ringTone.pause();
   ringTone.currentTime=0;
@@ -130,13 +138,25 @@ function endCall(){
 acceptBtn.onclick = async () => {
   ringTone.pause();
   ringTone.currentTime=0;
+
+  incomingDiv.style.display='none';
   acceptBtn.style.display='none';
   rejectBtn.style.display='none';
+
+  inCallDiv.style.display='block';
+  endBtn.style.display='inline-block';
+
   ws.send(JSON.stringify({type:"callAccepted"}));
 };
 
 // Reddet
 rejectBtn.onclick = () => {
+  ws.send(JSON.stringify({type:"callEnded"}));
+  endCall();
+};
+
+// Görüşmeyi sonlandır
+endBtn.onclick = () => {
   ws.send(JSON.stringify({type:"callEnded"}));
   endCall();
 };
