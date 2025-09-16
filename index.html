@@ -5,184 +5,141 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Phone2 Web Panel</title>
 <style>
-body { font-family: Arial,sans-serif; margin:0; padding:20px; background:#f0f8ff; display:flex; flex-direction:column; align-items:center; min-height:100vh; }
-h1 { color:#004d40; }
+  body { font-family: Arial,sans-serif; margin:0; padding:20px; background:#f0f8ff; display:flex; flex-direction:column; align-items:center; }
+  h1 { color:#004d40; }
+  
+  #incomingCall { display:none; padding:20px; background:#ffcccb; border-radius:15px; margin-bottom:20px; font-size:22px; font-weight:bold; text-align:center; animation: pulseAnim 1s infinite; }
 
-/* Login ekran */
-#loginScreen { position:fixed; top:0; left:0; width:100%; height:100%; background:#004d40cc; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; }
-#loginBox { background:white; padding:30px 40px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.3); display:flex; flex-direction:column; gap:15px; width:90%; max-width:350px; }
-#loginBox input { padding:12px; font-size:18px; border-radius:10px; border:1px solid #ccc; }
-#loginBox button { padding:12px; font-size:18px; background:#43a047; color:white; border:none; border-radius:10px; cursor:pointer; transition: transform 0.2s; }
-#loginBox button:active{ transform:scale(0.95); }
-#loginError { color:red; font-weight:bold; text-align:center; display:none; }
+  button { font-size:20px; padding:12px 30px; margin:10px; border:none; border-radius:10px; cursor:pointer; }
+  #acceptCall { background:#43a047; color:white; }
+  #rejectCall { background:#e53935; color:white; }
 
-/* Panel */
-#panel { display:none; width:100%; flex-direction:column; align-items:center; }
+  #micVisualizer { width:200px; height:50px; background:#ccc; margin-top:20px; border-radius:5px; overflow:hidden; }
+  #micBar { height:100%; width:0%; background:#43a047; transition: width 0.1s; }
 
-#statusBar { display:flex; justify-content:space-around; align-items:center; width:90%; max-width:500px; font-size:20px; font-weight:bold; margin:20px 0; }
-#wifiState { font-size:28px; font-weight:bold; transition: all 0.5s; }
-#callCount { font-size:26px; color:#00695c; transition: transform 0.3s; }
-
-#incomingCall { display:none; padding:20px; background:#ffcccb; border-radius:15px; margin-bottom:20px; font-size:22px; font-weight:bold; text-align:center; animation: pulseAnim 1s infinite; }
-
-button.controlBtn { font-size:24px; padding:20px 40px; border:none; border-radius:15px; cursor:pointer; color:white; transition: transform 0.2s, background 0.3s, box-shadow 0.3s; box-shadow:0 4px 8px rgba(0,0,0,0.2); }
-button.controlBtn:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,0,0.2); }
-#acceptCall { background:#43a047; display:none; }
-#rejectCall { background:#e53935; display:none; }
-
-#micVisualizer { width:200px; height:50px; background:#ccc; margin-top:20px; border-radius:5px; overflow:hidden; }
-#micBar { height:100%; width:0%; background:#43a047; transition: width 0.1s; }
-
-.pulse { animation:pulseAnim 1s ease-out; }
-@keyframes pulseAnim { 0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
+  @keyframes pulseAnim { 0%{opacity:0.7;} 50%{opacity:1;} 100%{opacity:0.7;} }
 </style>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
 
-<!-- Login Ekranı -->
-<div id="loginScreen">
-  <div id="loginBox">
-    <h2 style="text-align:center;">Giriş Yap</h2>
-    <input type="text" id="username" placeholder="Kullanıcı Adı">
-    <input type="password" id="password" placeholder="Şifre">
-    <button id="loginBtn">Giriş</button>
-    <div id="loginError">Kullanıcı adı veya şifre yanlış!</div>
-  </div>
-</div>
-
-<!-- Panel -->
-<div id="panel">
-<h1>İnterkom Kontrol Paneli</h1>
-<div id="statusBar">
-  <div>WiFi: <span id="wifiState">BAĞLANIYOR...</span></div>
-  <div>Gelen Çağrı Sayısı: <span id="callCount">0</span></div>
-</div>
-
+<h1>Phone2 Panel</h1>
 <div id="incomingCall">İNTERKOM ÇALIYOR!</div>
-<button id="acceptCall" class="controlBtn">Görüşmeyi Kabul Et</button>
-<button id="rejectCall" class="controlBtn">Görüşmeyi Reddet</button>
+<button id="acceptCall" style="display:none;">Görüşmeyi Kabul Et</button>
+<button id="rejectCall" style="display:none;">Görüşmeyi Reddet</button>
 
 <div id="micVisualizer"><div id="micBar"></div></div>
+
 <audio id="remoteAudio" autoplay></audio>
 <audio id="ringTone" src="https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg" preload="auto"></audio>
-</div>
 
 <script>
-document.addEventListener('DOMContentLoaded', ()=> {
-  const validUser = 'Admin';
-  const validPass = 'admin135';
+const ws = new WebSocket("wss://sesl-gorusme.onrender.com/ws");
+let pc;
+let localStream;
 
-  const loginScreen = document.getElementById('loginScreen');
-  const loginBtn = document.getElementById('loginBtn');
-  const loginError = document.getElementById('loginError');
-  const panel = document.getElementById('panel');
+const remoteAudio = document.getElementById('remoteAudio');
+const incomingDiv = document.getElementById('incomingCall');
+const acceptBtn = document.getElementById('acceptCall');
+const rejectBtn = document.getElementById('rejectCall');
+const ringTone = document.getElementById('ringTone');
+const micBar = document.getElementById('micBar');
 
-  function initPanel(){
-    panel.style.display='flex';
-    let callCount = parseInt(localStorage.getItem('callCount')||0);
-    document.getElementById('callCount').innerText = callCount;
+// Audio Visualizer
+let audioContext, analyser, dataArray;
+function initVisualizer(stream){
+  audioContext = new AudioContext();
+  const source = audioContext.createMediaStreamSource(stream);
+  analyser = audioContext.createAnalyser();
+  source.connect(analyser);
+  analyser.fftSize = 64;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  requestAnimationFrame(updateVisualizer);
+}
+function updateVisualizer(){
+  if(analyser){
+    analyser.getByteFrequencyData(dataArray);
+    let sum = dataArray.reduce((a,b)=>a+b,0);
+    let avg = sum/dataArray.length;
+    micBar.style.width = Math.min(100, avg) + '%';
+  }
+  requestAnimationFrame(updateVisualizer);
+}
 
-    const ws = new WebSocket("wss://sesl-gorusme.onrender.com/ws");
-    const incomingDiv = document.getElementById('incomingCall');
-    const acceptBtn = document.getElementById('acceptCall');
-    const rejectBtn = document.getElementById('rejectCall');
-    const ringTone = document.getElementById('ringTone');
-    const remoteAudio = document.getElementById('remoteAudio');
-    const micBar = document.getElementById('micBar');
-    let pc, localStream;
+// ICE Servers
+const iceServers = [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  { urls: "turn:standard.relay.metered.ca:80", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" },
+  { urls: "turn:standard.relay.metered.ca:443", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" }
+];
 
-    let audioContext, analyser, dataArray;
-    function initVisualizer(stream){
-      audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser = audioContext.createAnalyser();
-      source.connect(analyser);
-      analyser.fftSize = 64;
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-      requestAnimationFrame(updateVisualizer);
-    }
-    function updateVisualizer(){
-      if(analyser){
-        analyser.getByteFrequencyData(dataArray);
-        let sum = dataArray.reduce((a,b)=>a+b,0);
-        let avg = sum/dataArray.length;
-        micBar.style.width = Math.min(100, avg)+'%';
-      }
-      requestAnimationFrame(updateVisualizer);
-    }
+// Çağrı geldiğinde göster
+ws.onmessage = async (msg)=>{
+  const data = JSON.parse(msg.data);
 
-    const iceServers = [
-      { urls: "stun:stun.relay.metered.ca:80" },
-      { urls: "turn:standard.relay.metered.ca:80", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" },
-      { urls: "turn:standard.relay.metered.ca:443", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" }
-    ];
-
-    ws.onmessage = async (msg)=>{
-      const data = JSON.parse(msg.data);
-
-      if(data.type === "incomingCall"){
-        incomingDiv.style.display='block';
-        acceptBtn.style.display='inline-block';
-        rejectBtn.style.display='inline-block';
-        ringTone.play();
-      }
-
-      if(data.type==="offer"){
-        if(!pc){
-          pc = new RTCPeerConnection({iceServers});
-          pc.ontrack = (event)=> { remoteAudio.srcObject = event.streams[0]; };
-          pc.onicecandidate = (event)=>{ if(event.candidate) ws.send(JSON.stringify({type:"candidate", candidate:event.candidate})); };
-        }
-        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-        localStream = await navigator.mediaDevices.getUserMedia({audio:true});
-        localStream.getTracks().forEach(track=>pc.addTrack(track, localStream));
-        initVisualizer(localStream);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        ws.send(JSON.stringify({type:"answer", answer}));
-      }
-
-      if(data.type==="candidate" && pc){
-        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-      }
-
-      if(data.type==="callEnded"){
-        endCall();
-      }
-    };
-
-    function endCall(){
-      if(pc){
-        pc.getSenders().forEach(sender=>sender.track.stop());
-        pc.close();
-        pc=null;
-        localStream=null;
-      }
-      remoteAudio.srcObject=null;
-      micBar.style.width='0%';
-      incomingDiv.style.display='none';
-      acceptBtn.style.display='none';
-      rejectBtn.style.display='none';
-      ringTone.pause(); ringTone.currentTime=0;
-    }
-
-    acceptBtn.onclick = () => {
-      ringTone.pause(); ringTone.currentTime=0;
-      acceptBtn.style.display='none';
-      rejectBtn.style.display='none';
-      ws.send(JSON.stringify({type:"callAccepted"}));
-    };
-    rejectBtn.onclick = () => {
-      ws.send(JSON.stringify({type:"callEnded"}));
-      endCall();
-    };
+  if(data.type === "incomingCall"){ 
+    incomingDiv.style.display = 'block';
+    acceptBtn.style.display = 'inline-block';
+    rejectBtn.style.display = 'inline-block';
+    ringTone.play();
   }
 
-  if(localStorage.getItem('loggedIn')==='true'){
-    loginScreen.style.display='none';
-    initPanel();
+  if(data.type === "offer"){
+    if(!pc){
+      pc = new RTCPeerConnection({iceServers});
+      pc.ontrack = (event)=> { remoteAudio.srcObject = event.streams[0]; };
+      pc.onicecandidate = (event)=>{ if(event.candidate) ws.send(JSON.stringify({type:"candidate", candidate:event.candidate})); };
+    }
+    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    localStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    localStream.getTracks().forEach(track=>pc.addTrack(track, localStream));
+    initVisualizer(localStream);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    ws.send(JSON.stringify({type:"answer", answer}));
   }
 
-  loginBtn.addEventListener('click', ()=>{
-    const u = document.getElementBy
+  if(data.type==="candidate" && pc){
+    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+  }
+
+  if(data.type === "callEnded"){
+    endCall();
+  }
+};
+
+// Çağrıyı bitir/görünümü temizle
+function endCall(){
+  if(pc){
+    pc.getSenders().forEach(sender=>sender.track.stop());
+    pc.close();
+    pc=null;
+    localStream=null;
+  }
+  remoteAudio.srcObject=null;
+  micBar.style.width='0%';
+
+  incomingDiv.style.display='none';
+  acceptBtn.style.display='none';
+  rejectBtn.style.display='none';
+
+  ringTone.pause();
+  ringTone.currentTime=0;
+}
+
+// Kabul et
+acceptBtn.onclick = async () => {
+  ringTone.pause();
+  ringTone.currentTime=0;
+  acceptBtn.style.display='none';
+  rejectBtn.style.display='none';
+  ws.send(JSON.stringify({type:"callAccepted"}));
+};
+
+// Reddet
+rejectBtn.onclick = () => {
+  ws.send(JSON.stringify({type:"callEnded"}));
+  endCall();
+};
+</script>
+</body>
+</html>
