@@ -5,46 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>İnterkom Kontrol Paneli</title>
 <style>
-  body { font-family: Arial,sans-serif; margin:0; padding:0; background: linear-gradient(to bottom,#e0f7fa,#80deea); display:flex; flex-direction:column; align-items:center; min-height:100vh; }
-  h1 { margin:20px 0; font-size:28px; color:#004d40; text-shadow:1px 1px 2px #ccc; }
+body { font-family: Arial,sans-serif; margin:0; padding:0; background: linear-gradient(to bottom,#e0f7fa,#80deea); display:flex; flex-direction:column; align-items:center; min-height:100vh; }
+h1 { margin:20px 0; font-size:28px; color:#004d40; text-shadow:1px 1px 2px #ccc; }
 
-  /* Login ekran */
-  #loginScreen { position:fixed; top:0; left:0; width:100%; height:100%; background:#004d40cc; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; }
-  #loginBox { background:white; padding:30px 40px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.3); display:flex; flex-direction:column; gap:15px; width:90%; max-width:350px; }
-  #loginBox input { padding:12px; font-size:18px; border-radius:10px; border:1px solid #ccc; }
-  #loginBox button { padding:12px; font-size:18px; background:#43a047; color:white; border:none; border-radius:10px; cursor:pointer; transition: transform 0.2s; }
-  #loginBox button:active{ transform:scale(0.95); }
-  #loginError { color:red; font-weight:bold; text-align:center; display:none; }
+/* Login ekran */
+#loginScreen { position:fixed; top:0; left:0; width:100%; height:100%; background:#004d40cc; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; }
+#loginBox { background:white; padding:30px 40px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.3); display:flex; flex-direction:column; gap:15px; width:90%; max-width:350px; }
+#loginBox input { padding:12px; font-size:18px; border-radius:10px; border:1px solid #ccc; }
+#loginBox button { padding:12px; font-size:18px; background:#43a047; color:white; border:none; border-radius:10px; cursor:pointer; transition: transform 0.2s; }
+#loginBox button:active{ transform:scale(0.95); }
+#loginError { color:red; font-weight:bold; text-align:center; display:none; }
 
-  /* Panel */
-  #panel { display:none; width:100%; flex-direction:column; align-items:center; }
+/* Panel */
+#panel { display:none; width:100%; flex-direction:column; align-items:center; }
 
-  #statusBar { display:flex; justify-content:space-around; align-items:center; width:90%; max-width:500px; font-size:20px; font-weight:bold; margin:20px 0; }
-  #wifiState { font-size:28px; font-weight:bold; transition: all 0.5s; }
-  #callCount { font-size:26px; color:#00695c; transition: transform 0.3s; }
+#statusBar { display:flex; justify-content:space-around; align-items:center; width:90%; max-width:500px; font-size:20px; font-weight:bold; margin:20px 0; }
+#wifiState { font-size:28px; font-weight:bold; transition: all 0.5s; }
+#callCount { font-size:26px; color:#00695c; transition: transform 0.3s; }
 
-  #callButtons { margin:40px 0; display:flex; flex-direction:column; align-items:center; gap:20px; }
-  button.controlBtn { font-size:24px; padding:20px 40px; border:none; border-radius:15px; cursor:pointer; color:white; transition: transform 0.2s, background 0.3s, box-shadow 0.3s; box-shadow:0 4px 8px rgba(0,0,0,0.2); }
-  button.controlBtn:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,0,0.2); }
-  #startCall { background:#43a047; }
-  #stopCall { background:#e53935; }
+#callButtons { margin:40px 0; display:flex; flex-direction:column; align-items:center; gap:20px; }
+button.controlBtn { font-size:24px; padding:20px 40px; border:none; border-radius:15px; cursor:pointer; color:white; transition: transform 0.2s, background 0.3s, box-shadow 0.3s; box-shadow:0 4px 8px rgba(0,0,0,0.2); }
+button.controlBtn:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,0,0.2); }
+#startCall { background:#43a047; }
+#stopCall { background:#e53935; }
 
-  #micStatus { font-size:24px; margin-top:30px; min-height:30px; font-weight:bold; text-align:center; transition: all 0.5s; }
+#micStatus { font-size:24px; margin-top:30px; min-height:30px; font-weight:bold; text-align:center; transition: all 0.5s; }
 
-  /* Çağrı bildirimi */
-  #callNotif { font-size:24px; color:red; margin:20px; display:none; }
+.pulse { animation:pulseAnim 1s ease-out; }
+@keyframes pulseAnim { 0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
 
-  /* Ses animasyonu */
-  #audioLevel { width:200px; height:30px; background:#b2dfdb; border-radius:15px; overflow:hidden; margin-top:20px; display:none; }
-  #audioLevelBar { height:100%; width:0%; background:#004d40; transition: width 0.1s; }
-
-  .pulse { animation:pulseAnim 1s ease-out; }
-  @keyframes pulseAnim { 0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
-
-  @media(max-width:600px){
-    button.controlBtn{ width:80%; font-size:22px; }
-    #statusBar{ flex-direction:column; gap:15px; }
-  }
+@media(max-width:600px){
+  button.controlBtn{ width:80%; font-size:22px; }
+  #statusBar{ flex-direction:column; gap:15px; }
+}
 </style>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
@@ -70,18 +63,12 @@
   <div>Gelen Çağrı Sayısı: <span id="callCount">0</span></div>
 </div>
 
-<div id="callNotif">📢 İnterkom Çalıyor!</div>
-<audio id="ringTone" src="ring.mp3" loop></audio>
 <div id="callButtons">
   <button id="startCall" class="controlBtn">Konuşmayı Başlat</button>
   <button id="stopCall" class="controlBtn">Konuşmayı Kapat</button>
 </div>
 
 <div id="micStatus"></div>
-
-<!-- Ses animasyonu -->
-<div id="audioLevel"><div id="audioLevelBar"></div></div>
-
 </div>
 
 <script>
@@ -93,18 +80,17 @@ document.addEventListener('DOMContentLoaded', ()=> {
   const loginBtn = document.getElementById('loginBtn');
   const loginError = document.getElementById('loginError');
   const panel = document.getElementById('panel');
-  const callNotif = document.getElementById('callNotif');
-  const ringTone = document.getElementById('ringTone');
-  const audioLevel = document.getElementById('audioLevel');
-  const audioLevelBar = document.getElementById('audioLevelBar');
 
-  async function initPanel(){
-    panel.style.display='flex';
+  function initPanel(){
+    panel.style.display='flex'; // paneli göster
     let callCount = parseInt(localStorage.getItem('callCount') || 0);
     document.getElementById('callCount').innerText = callCount;
 
-    // MQTT
-    const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{username:'kemal123', password:'Kemal12345'});
+    // MQTT bağlantısı
+    const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{
+      username:'kemal123', 
+      password:'Kemal12345'
+    });
 
     client.on('connect', function(){
       console.log('MQTT Bağlandı');
@@ -115,6 +101,7 @@ document.addEventListener('DOMContentLoaded', ()=> {
 
     client.on('message', function(topic, message){
       const msg = message.toString();
+
       if(topic==='wifiStatus'){
         let el = document.getElementById('wifiState');
         el.innerText = msg;
@@ -122,6 +109,7 @@ document.addEventListener('DOMContentLoaded', ()=> {
         el.classList.add('pulse');
         setTimeout(()=>{el.classList.remove('pulse');},500);
       }
+
       if(topic==='micStatus'){
         let el = document.getElementById('micStatus');
         el.innerText = (msg==='ON')?'Mikrofon Açık, Konuşabilirsiniz!':'Mikrofon Kapalı, Konuşma Bitti!';
@@ -129,6 +117,7 @@ document.addEventListener('DOMContentLoaded', ()=> {
         el.classList.add('pulse');
         setTimeout(()=>{el.classList.remove('pulse'); el.innerText='';},3000);
       }
+
       if(topic==='relay1'){
         callCount++;
         localStorage.setItem('callCount', callCount);
@@ -139,131 +128,23 @@ document.addEventListener('DOMContentLoaded', ()=> {
       }
     });
 
-    // WebRTC
-    let pc;
-    let localStream;
-    const remoteAudio = document.createElement('audio');
-    remoteAudio.autoplay = true;
-    document.body.appendChild(remoteAudio);
-
-    const iceServers = [
-      { urls: "stun:stun.relay.metered.ca:80" },
-      { urls: "turn:standard.relay.metered.ca:80", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" },
-      { urls: "turn:standard.relay.metered.ca:80?transport=tcp", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" },
-      { urls: "turn:standard.relay.metered.ca:443", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" },
-      { urls: "turns:standard.relay.metered.ca:443?transport=tcp", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" }
-    ];
-
-    const ws = new WebSocket("wss://sesl-gorusme.onrender.com/ws");
-
-    ws.onmessage = async (msg) => {
-      const data = JSON.parse(msg.data);
-
-      if(data.type === "incomingCall"){
-        callNotif.style.display = 'block';
-        ringTone.play();
-        document.getElementById('startCall').disabled = false;
-      }
-
-      if (!pc) return;
-
-      if (data.type === "offer") {
-        await initCall();
-        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        ws.send(JSON.stringify({ type: "answer", answer }));
-      } else if (data.type === "answer") {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-      } else if (data.type === "candidate") {
-        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-      } else if (data.type === "callEnd") {
-        endCall();
-      }
-    };
-
-    // WebRTC başlatma
-    async function initCall(){
-      if(pc) return;
-      localStream = await navigator.mediaDevices.getUserMedia({ audio:true });
-      pc = new RTCPeerConnection({ iceServers });
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-      pc.ontrack = (event) => { 
-        remoteAudio.srcObject = event.streams[0];
-        audioLevel.style.display='block';
-        visualizeAudio(remoteAudio);
-      };
-      pc.onicecandidate = (event) => { if(event.candidate) ws.send(JSON.stringify({ type:"candidate", candidate:event.candidate })); };
-    }
-
-    async function startCall(){
-      callNotif.style.display = 'none';
-      ringTone.pause();
-      ringTone.currentTime = 0;
-      document.getElementById('startCall').disabled = true;
-      document.getElementById('stopCall').disabled = false;
-
-      await initCall();
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      ws.send(JSON.stringify({ type:"offer", offer }));
-    }
-
-    function stopCall(){
-      ws.send(JSON.stringify({ type:"callEnd" }));
-      endCall();
-    }
-
-    function endCall(){
-      if(pc){
-        pc.getSenders().forEach(sender => sender.track.stop());
-        pc.close();
-        pc = null;
-        localStream = null;
-      }
-      remoteAudio.srcObject = null;
-      callNotif.style.display = 'none';
-      ringTone.pause();
-      ringTone.currentTime = 0;
-      audioLevel.style.display='none';
-      document.getElementById('startCall').disabled = false;
-      document.getElementById('stopCall').disabled = true;
-    }
-
-    // Ses görselleştirme
-    function visualizeAudio(audioEl){
-      const audioCtx = new AudioContext();
-      const source = audioCtx.createMediaElementSource(audioEl);
-      const analyser = audioCtx.createAnalyser();
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
-      analyser.fftSize = 256;
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      function draw(){
-        requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
-        let avg = dataArray.reduce((a,b)=>a+b,0)/bufferLength;
-        audioLevelBar.style.width = Math.min(100,(avg/128)*100) + '%';
-      }
-      draw();
-    }
-
-    document.getElementById('startCall').addEventListener('click', startCall);
-    document.getElementById('stopCall').addEventListener('click', stopCall);
-
-    document.getElementById('startCall').addEventListener('click', ()=>{ client.publish('relay1','TRIG'); });
-    document.getElementById('stopCall').addEventListener('click', ()=>{ client.publish('relay2','TRIG'); });
+    // Butonlar
+    document.getElementById('startCall').addEventListener('click', ()=>{
+      client.publish('relay1','TRIG');
+    });
+    document.getElementById('stopCall').addEventListener('click', ()=>{
+      client.publish('relay2','TRIG');
+    });
   }
 
+  // Daha önce giriş yapılmışsa paneli göster
   if(localStorage.getItem('loggedIn')==='true'){
     loginScreen.style.display='none';
     initPanel();
   }
 
-  loginBtn.addEventListener('click', ()=> {
+  // Login kontrolü
+  loginBtn.addEventListener('click', ()=>{
     const u = document.getElementById('username').value;
     const p = document.getElementById('password').value;
     if(u===validUser && p===validPass){
