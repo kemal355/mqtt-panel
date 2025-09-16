@@ -31,6 +31,9 @@ button.controlBtn:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,
 
 #micStatus { font-size:24px; margin-top:30px; min-height:30px; font-weight:bold; text-align:center; transition: all 0.5s; }
 
+#remoteAudioWrapper { margin-top:20px; }
+#remoteAudio { width:300px; }
+
 .pulse { animation:pulseAnim 1s ease-out; }
 @keyframes pulseAnim { 0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
 
@@ -69,6 +72,9 @@ button.controlBtn:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,
 </div>
 
 <div id="micStatus"></div>
+<div id="remoteAudioWrapper">
+  <audio id="remoteAudio" autoplay></audio>
+</div>
 </div>
 
 <script>
@@ -82,24 +88,36 @@ document.addEventListener('DOMContentLoaded', ()=> {
   const panel = document.getElementById('panel');
 
   function initPanel(){
-    panel.style.display='flex'; // paneli göster
+    panel.style.display='flex';
     let callCount = parseInt(localStorage.getItem('callCount') || 0);
     document.getElementById('callCount').innerText = callCount;
 
     // MQTT bağlantısı
     const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{
       username:'kemal123', 
-      password:'Kemal12345'
+      password:'Kemal12345' 
     });
 
-    client.on('connect', function(){
+    client.on('connect', ()=>{
       console.log('MQTT Bağlandı');
       client.subscribe('wifiStatus');
       client.subscribe('micStatus');
       client.subscribe('relay1');
+      client.subscribe('webrtcOffer');
+      client.subscribe('webrtcCandidate');
+      client.subscribe('webrtcAnswer');
     });
 
-    client.on('message', function(topic, message){
+    // WebRTC
+    let pc;
+    const remoteAudio = document.getElementById('remoteAudio');
+    const iceServers = [
+      { urls: "stun:stun.relay.metered.ca:80" },
+      { urls: "turn:standard.relay.metered.ca:80", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" },
+      { urls: "turn:standard.relay.metered.ca:443", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" }
+    ];
+
+    client.on('message', async (topic, message)=>{
       const msg = message.toString();
 
       if(topic==='wifiStatus'){
@@ -119,12 +137,36 @@ document.addEventListener('DOMContentLoaded', ()=> {
       }
 
       if(topic==='relay1'){
+        document.getElementById('micStatus').innerText = 'OPERATÖR ARANIYOR';
         callCount++;
         localStorage.setItem('callCount', callCount);
         let el = document.getElementById('callCount');
         el.innerText = callCount;
         el.classList.add('pulse');
         setTimeout(()=>{el.classList.remove('pulse');},300);
+
+        // WebRTC başlat
+        if(!pc){
+          pc = new RTCPeerConnection({iceServers});
+          pc.ontrack = (event)=> { remoteAudio.srcObject = event.streams[0]; };
+          pc.onicecandidate = (event)=>{ if(event.candidate) client.publish('webrtcCandidate', JSON.stringify(event.candidate)); };
+        }
+
+        const localStream = await navigator.mediaDevices.getUserMedia({audio:true});
+        localStream.getTracks().forEach(track=> pc.addTrack(track, localStream));
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        client.publish('webrtcOffer', JSON.stringify({offer}));
+      }
+
+      if(topic==='webrtcAnswer' && pc){
+        const answer = JSON.parse(msg);
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      }
+
+      if(topic==='webrtcCandidate' && pc){
+        const candidate = JSON.parse(msg);
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
       }
     });
 
@@ -134,6 +176,13 @@ document.addEventListener('DOMContentLoaded', ()=> {
     });
     document.getElementById('stopCall').addEventListener('click', ()=>{
       client.publish('relay2','TRIG');
+      if(pc){
+        pc.getSenders().forEach(sender=>sender.track.stop());
+        pc.close();
+        pc=null;
+      }
+      remoteAudio.srcObject=null;
+      document.getElementById('micStatus').innerText='';
     });
   }
 
