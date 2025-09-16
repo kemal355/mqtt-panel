@@ -3,201 +3,127 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Phone2 İnterkom Paneli</title>
+<title>Phone2 Panel</title>
 <style>
-body { font-family: Arial,sans-serif; margin:0; padding:0; background: linear-gradient(to bottom,#e0f7fa,#80deea); display:flex; flex-direction:column; align-items:center; min-height:100vh; }
-h1 { margin:20px 0; font-size:28px; color:#004d40; text-shadow:1px 1px 2px #ccc; }
-
-/* Login ekran */
-#loginScreen { position:fixed; top:0; left:0; width:100%; height:100%; background:#004d40cc; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; }
-#loginBox { background:white; padding:30px 40px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.3); display:flex; flex-direction:column; gap:15px; width:90%; max-width:350px; }
-#loginBox input { padding:12px; font-size:18px; border-radius:10px; border:1px solid #ccc; }
-#loginBox button { padding:12px; font-size:18px; background:#43a047; color:white; border:none; border-radius:10px; cursor:pointer; transition: transform 0.2s; }
-#loginBox button:active{ transform:scale(0.95); }
-#loginError { color:red; font-weight:bold; text-align:center; display:none; }
-
-/* Panel */
-#panel { display:none; width:100%; flex-direction:column; align-items:center; }
-
-#statusBar { display:flex; justify-content:space-around; align-items:center; width:90%; max-width:500px; font-size:20px; font-weight:bold; margin:20px 0; }
-#wifiState { font-size:28px; font-weight:bold; transition: all 0.5s; }
-#callCount { font-size:26px; color:#00695c; transition: transform 0.3s; }
-
-#incomingCallDiv { display:none; padding:20px; background:#ffcccb; border-radius:15px; font-size:22px; font-weight:bold; text-align:center; margin:20px 0; }
-
-#callButtons { display:flex; gap:20px; margin-bottom:20px; }
-button.controlBtn { font-size:20px; padding:15px 30px; border:none; border-radius:10px; cursor:pointer; color:white; }
-#acceptCall { background:#43a047; }
-#rejectCall { background:#e53935; }
-
-#micVisualizer { width:200px; height:30px; background:#ccc; border-radius:5px; overflow:hidden; margin-top:20px; }
+body { font-family: Arial,sans-serif; margin:0; padding:20px; background:#f0f8ff; display:flex; flex-direction:column; align-items:center; }
+h1 { color:#004d40; margin-bottom:20px; }
+#incomingCall { display:none; padding:20px; background:#ffcccb; border-radius:15px; margin-bottom:20px; font-size:22px; font-weight:bold; text-align:center; animation:pulseAnim 1s infinite; }
+button { font-size:20px; padding:12px 30px; margin:10px; border:none; border-radius:10px; cursor:pointer; }
+#acceptCall { background:#43a047; color:white; }
+#rejectCall { background:#e53935; color:white; }
+#micVisualizer { width:200px; height:50px; background:#ccc; margin-top:20px; border-radius:5px; overflow:hidden; }
 #micBar { height:100%; width:0%; background:#43a047; transition: width 0.1s; }
-
-.pulse { animation:pulseAnim 1s ease-out; }
-@keyframes pulseAnim { 0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
-
-@media(max-width:600px){
-  #callButtons { flex-direction:column; width:80%; }
-}
+@keyframes pulseAnim { 0%{opacity:0.7;} 50%{opacity:1;} 100%{opacity:0.7;} }
 </style>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
 
-<!-- Login -->
-<div id="loginScreen">
-  <div id="loginBox">
-    <h2 style="text-align:center;">Giriş Yap</h2>
-    <input type="text" id="username" placeholder="Kullanıcı Adı">
-    <input type="password" id="password" placeholder="Şifre">
-    <button id="loginBtn">Giriş</button>
-    <div id="loginError">Kullanıcı adı veya şifre yanlış!</div>
-  </div>
-</div>
-
-<!-- Panel -->
-<div id="panel">
-<h1>Phone2 İnterkom Paneli</h1>
-
-<div id="statusBar">
-  <div>WiFi: <span id="wifiState">BAĞLANIYOR...</span></div>
-  <div>Gelen Çağrı Sayısı: <span id="callCount">0</span></div>
-</div>
-
-<div id="incomingCallDiv">İNTERKOM ÇALIYOR!</div>
-
-<div id="callButtons">
-  <button id="acceptCall" class="controlBtn">Kabul Et</button>
-  <button id="rejectCall" class="controlBtn">Reddet</button>
-</div>
+<h1>Phone2 Panel</h1>
+<div id="incomingCall">İNTERKOM ÇALIYOR!</div>
+<button id="acceptCall" style="display:none;">Kabul Et</button>
+<button id="rejectCall" style="display:none;">Reddet</button>
 
 <div id="micVisualizer"><div id="micBar"></div></div>
-
 <audio id="remoteAudio" autoplay></audio>
 <audio id="ringTone" src="https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg" preload="auto"></audio>
 
 <script>
-document.addEventListener('DOMContentLoaded', ()=>{
-  const validUser='Admin';
-  const validPass='admin135';
+const ws = new WebSocket("wss://sesl-gorusme.onrender.com/ws");
+const incomingDiv = document.getElementById('incomingCall');
+const acceptBtn = document.getElementById('acceptCall');
+const rejectBtn = document.getElementById('rejectCall');
+const ringTone = document.getElementById('ringTone');
+const micBar = document.getElementById('micBar');
+const remoteAudio = document.getElementById('remoteAudio');
 
-  const loginScreen = document.getElementById('loginScreen');
-  const loginBtn = document.getElementById('loginBtn');
-  const loginError = document.getElementById('loginError');
-  const panel = document.getElementById('panel');
+let pc;
+let localStream;
+let audioContext, analyser, dataArray;
 
-  if(localStorage.getItem('loggedIn')==='true'){
-    loginScreen.style.display='none';
-    initPanel();
+function initVisualizer(stream){
+  audioContext = new AudioContext();
+  const source = audioContext.createMediaStreamSource(stream);
+  analyser = audioContext.createAnalyser();
+  analyser.fftSize = 64;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  source.connect(analyser);
+  requestAnimationFrame(updateVisualizer);
+}
+
+function updateVisualizer(){
+  if(analyser){
+    analyser.getByteFrequencyData(dataArray);
+    let sum = dataArray.reduce((a,b)=>a+b,0);
+    let avg = sum/dataArray.length;
+    micBar.style.width = Math.min(100, avg) + '%';
   }
+  requestAnimationFrame(updateVisualizer);
+}
 
-  loginBtn.addEventListener('click', ()=>{
-    const u=document.getElementById('username').value;
-    const p=document.getElementById('password').value;
-    if(u===validUser && p===validPass){
-      loginScreen.style.display='none';
-      localStorage.setItem('loggedIn','true');
-      initPanel();
-    } else loginError.style.display='block';
-  });
+const iceServers = [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  { urls: "turn:standard.relay.metered.ca:80", username:"d648d4967e580d04e7c7b9be", credential:"evt4C7YBa+aWhUrI" },
+  { urls: "turn:standard.relay.metered.ca:443", username:"d648d4967e580d04e7c7b9be", credential:"evt4C7YBa+aWhUrI" }
+];
 
-  function initPanel(){
-    panel.style.display='flex';
-    let callCount=parseInt(localStorage.getItem('callCount')||0);
-    document.getElementById('callCount').innerText=callCount;
+ws.onopen = ()=> console.log('Phone2 WebSocket bağlandı');
 
-    const client=mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{
-      username:'kemal123',
-      password:'Kemal12345'
-    });
+ws.onmessage = async (msg) => {
+  const data = JSON.parse(msg.data);
 
-    client.on('connect',()=>{
-      console.log('MQTT Bağlandı');
-      client.subscribe('incomingCall');
-      client.subscribe('callEnd');
-    });
-
-    const incomingDiv=document.getElementById('incomingCallDiv');
-    const acceptBtn=document.getElementById('acceptCall');
-    const rejectBtn=document.getElementById('rejectCall');
-    const ringTone=document.getElementById('ringTone');
-    const remoteAudio=document.getElementById('remoteAudio');
-    const micBar=document.getElementById('micBar');
-
-    let pc=null;
-    let localStream=null;
-
-    // Audio Visualizer
-    let audioContext, analyser, dataArray;
-    function initVisualizer(stream){
-      audioContext = new AudioContext();
-      const source=audioContext.createMediaStreamSource(stream);
-      analyser=audioContext.createAnalyser();
-      source.connect(analyser);
-      analyser.fftSize=64;
-      dataArray=new Uint8Array(analyser.frequencyBinCount);
-      requestAnimationFrame(updateVisualizer);
+  if(data.type === "incomingCall"){
+    incomingDiv.style.display = 'block';
+    ringTone.play();
+    acceptBtn.style.display = 'inline-block';
+    rejectBtn.style.display = 'inline-block';
+  } else if(data.type === "offer"){
+    if(!pc){
+      pc = new RTCPeerConnection({iceServers});
+      pc.ontrack = (event)=> { remoteAudio.srcObject = event.streams[0]; };
+      pc.onicecandidate = (event)=>{ if(event.candidate) ws.send(JSON.stringify({type:"candidate", candidate:event.candidate})); };
     }
-    function updateVisualizer(){
-      if(analyser){
-        analyser.getByteFrequencyData(dataArray);
-        let avg=dataArray.reduce((a,b)=>a+b,0)/dataArray.length;
-        micBar.style.width=Math.min(100,avg)+'%';
-      }
-      requestAnimationFrame(updateVisualizer);
-    }
-
-    client.on('message', async(topic,message)=>{
-      const msg=message.toString();
-      if(topic==='incomingCall'){
-        incomingDiv.style.display='block';
-        ringTone.play();
-      } else if(topic==='callEnd'){
-        endCall();
-      }
-    });
-
-    acceptBtn.onclick=async ()=>{
-      ringTone.pause(); ringTone.currentTime=0;
-      incomingDiv.style.display='none';
-
-      pc=new RTCPeerConnection({
-        iceServers:[
-          {urls:"stun:stun.relay.metered.ca:80"},
-          {urls:"turn:standard.relay.metered.ca:80",username:"d648d4967e580d04e7c7b9be",credential:"evt4C7YBa+aWhUrI"},
-          {urls:"turn:standard.relay.metered.ca:443",username:"d648d4967e580d04e7c7b9be",credential:"evt4C7YBa+aWhUrI"}
-        ]
-      });
-
-      pc.ontrack=(event)=>{ remoteAudio.srcObject=event.streams[0]; };
-      pc.onicecandidate=(event)=>{ if(event.candidate) client.publish('webrtcCandidate',JSON.stringify(event.candidate)); };
-
-      localStream=await navigator.mediaDevices.getUserMedia({audio:true});
-      localStream.getTracks().forEach(track=>pc.addTrack(track,localStream));
-      initVisualizer(localStream);
-
-      // Offer oluştur ve Phone1’e gönder
-      const offer=await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      client.publish('webrtcOffer',JSON.stringify(offer));
-    };
-
-    rejectBtn.onclick=()=>{
-      ringTone.pause(); ringTone.currentTime=0;
-      incomingDiv.style.display='none';
-      client.publish('callRejected','true');
-    };
-
-    function endCall(){
-      if(pc){
-        pc.getSenders().forEach(s=>s.track.stop());
-        pc.close(); pc=null;
-      }
-      remoteAudio.srcObject=null;
-      micBar.style.width='0%';
-    }
+    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    localStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    localStream.getTracks().forEach(track=>pc.addTrack(track, localStream));
+    initVisualizer(localStream);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    ws.send(JSON.stringify({type:"answer", answer}));
+  } else if(data.type==="candidate" && pc){
+    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+  } else if(data.type==="callEnded"){
+    endCall();
   }
-});
+};
+
+function startCall(){
+  incomingDiv.style.display = 'none';
+  acceptBtn.style.display = 'none';
+  rejectBtn.style.display = 'none';
+  ringTone.pause();
+  ringTone.currentTime=0;
+}
+
+function endCall(){
+  if(pc){
+    pc.getSenders().forEach(sender=>sender.track.stop());
+    pc.close();
+    pc=null;
+    localStream=null;
+  }
+  remoteAudio.srcObject=null;
+  micBar.style.width='0%';
+}
+
+acceptBtn.onclick = () => {
+  startCall();
+  ws.send(JSON.stringify({type:"callAccepted"}));
+};
+
+rejectBtn.onclick = () => {
+  endCall();
+  ws.send(JSON.stringify({type:"callEnded"}));
+};
 </script>
 
 </body>
