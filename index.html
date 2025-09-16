@@ -3,53 +3,58 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Phone2 Panel</title>
+<title>Phone2 Web Panel</title>
 <style>
-body { font-family: Arial,sans-serif; margin:0; padding:20px; background:#f0f8ff; display:flex; flex-direction:column; align-items:center; }
-h1 { color:#004d40; margin-bottom:20px; }
-#incomingCall { display:none; padding:20px; background:#ffcccb; border-radius:15px; margin-bottom:20px; font-size:22px; font-weight:bold; text-align:center; animation:pulseAnim 1s infinite; }
-button { font-size:20px; padding:12px 30px; margin:10px; border:none; border-radius:10px; cursor:pointer; }
-#acceptCall { background:#43a047; color:white; }
-#rejectCall { background:#e53935; color:white; }
-#micVisualizer { width:200px; height:50px; background:#ccc; margin-top:20px; border-radius:5px; overflow:hidden; }
-#micBar { height:100%; width:0%; background:#43a047; transition: width 0.1s; }
-@keyframes pulseAnim { 0%{opacity:0.7;} 50%{opacity:1;} 100%{opacity:0.7;} }
+  body { font-family: Arial,sans-serif; margin:0; padding:20px; background:#f0f8ff; display:flex; flex-direction:column; align-items:center; }
+  h1 { color:#004d40; }
+  
+  #incomingCall { display:none; padding:20px; background:#ffcccb; border-radius:15px; margin-bottom:20px; font-size:22px; font-weight:bold; text-align:center; animation: pulseAnim 1s infinite; }
+
+  button { font-size:20px; padding:12px 30px; margin:10px; border:none; border-radius:10px; cursor:pointer; }
+  #acceptCall { background:#43a047; color:white; }
+  #rejectCall { background:#e53935; color:white; }
+
+  #micVisualizer { width:200px; height:50px; background:#ccc; margin-top:20px; border-radius:5px; overflow:hidden; }
+  #micBar { height:100%; width:0%; background:#43a047; transition: width 0.1s; }
+
+  @keyframes pulseAnim { 0%{opacity:0.7;} 50%{opacity:1;} 100%{opacity:0.7;} }
 </style>
 </head>
 <body>
 
 <h1>Phone2 Panel</h1>
 <div id="incomingCall">İNTERKOM ÇALIYOR!</div>
-<button id="acceptCall" style="display:none;">Kabul Et</button>
-<button id="rejectCall" style="display:none;">Reddet</button>
+<button id="acceptCall" style="display:none;">Görüşmeyi Kabul Et</button>
+<button id="rejectCall" style="display:none;">Görüşmeyi Reddet</button>
 
 <div id="micVisualizer"><div id="micBar"></div></div>
+
 <audio id="remoteAudio" autoplay></audio>
 <audio id="ringTone" src="https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg" preload="auto"></audio>
 
 <script>
 const ws = new WebSocket("wss://sesl-gorusme.onrender.com/ws");
+let pc;
+let localStream;
+
+const remoteAudio = document.getElementById('remoteAudio');
 const incomingDiv = document.getElementById('incomingCall');
 const acceptBtn = document.getElementById('acceptCall');
 const rejectBtn = document.getElementById('rejectCall');
 const ringTone = document.getElementById('ringTone');
 const micBar = document.getElementById('micBar');
-const remoteAudio = document.getElementById('remoteAudio');
 
-let pc;
-let localStream;
+// Audio Visualizer
 let audioContext, analyser, dataArray;
-
 function initVisualizer(stream){
   audioContext = new AudioContext();
   const source = audioContext.createMediaStreamSource(stream);
   analyser = audioContext.createAnalyser();
+  source.connect(analyser);
   analyser.fftSize = 64;
   dataArray = new Uint8Array(analyser.frequencyBinCount);
-  source.connect(analyser);
   requestAnimationFrame(updateVisualizer);
 }
-
 function updateVisualizer(){
   if(analyser){
     analyser.getByteFrequencyData(dataArray);
@@ -60,23 +65,25 @@ function updateVisualizer(){
   requestAnimationFrame(updateVisualizer);
 }
 
+// ICE Servers
 const iceServers = [
   { urls: "stun:stun.relay.metered.ca:80" },
-  { urls: "turn:standard.relay.metered.ca:80", username:"d648d4967e580d04e7c7b9be", credential:"evt4C7YBa+aWhUrI" },
-  { urls: "turn:standard.relay.metered.ca:443", username:"d648d4967e580d04e7c7b9be", credential:"evt4C7YBa+aWhUrI" }
+  { urls: "turn:standard.relay.metered.ca:80", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" },
+  { urls: "turn:standard.relay.metered.ca:443", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" }
 ];
 
-ws.onopen = ()=> console.log('Phone2 WebSocket bağlandı');
-
-ws.onmessage = async (msg) => {
+// Çağrı geldiğinde göster
+ws.onmessage = async (msg)=>{
   const data = JSON.parse(msg.data);
 
-  if(data.type === "incomingCall"){
+  if(data.type === "incomingCall"){ 
     incomingDiv.style.display = 'block';
-    ringTone.play();
     acceptBtn.style.display = 'inline-block';
     rejectBtn.style.display = 'inline-block';
-  } else if(data.type === "offer"){
+    ringTone.play();
+  }
+
+  if(data.type === "offer"){
     if(!pc){
       pc = new RTCPeerConnection({iceServers});
       pc.ontrack = (event)=> { remoteAudio.srcObject = event.streams[0]; };
@@ -89,21 +96,18 @@ ws.onmessage = async (msg) => {
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     ws.send(JSON.stringify({type:"answer", answer}));
-  } else if(data.type==="candidate" && pc){
+  }
+
+  if(data.type==="candidate" && pc){
     await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-  } else if(data.type==="callEnded"){
+  }
+
+  if(data.type === "callEnded"){
     endCall();
   }
 };
 
-function startCall(){
-  incomingDiv.style.display = 'none';
-  acceptBtn.style.display = 'none';
-  rejectBtn.style.display = 'none';
-  ringTone.pause();
-  ringTone.currentTime=0;
-}
-
+// Çağrıyı bitir/görünümü temizle
 function endCall(){
   if(pc){
     pc.getSenders().forEach(sender=>sender.track.stop());
@@ -113,18 +117,29 @@ function endCall(){
   }
   remoteAudio.srcObject=null;
   micBar.style.width='0%';
+
+  incomingDiv.style.display='none';
+  acceptBtn.style.display='none';
+  rejectBtn.style.display='none';
+
+  ringTone.pause();
+  ringTone.currentTime=0;
 }
 
-acceptBtn.onclick = () => {
-  startCall();
+// Kabul et
+acceptBtn.onclick = async () => {
+  ringTone.pause();
+  ringTone.currentTime=0;
+  acceptBtn.style.display='none';
+  rejectBtn.style.display='none';
   ws.send(JSON.stringify({type:"callAccepted"}));
 };
 
+// Reddet
 rejectBtn.onclick = () => {
-  endCall();
   ws.send(JSON.stringify({type:"callEnded"}));
+  endCall();
 };
 </script>
-
 </body>
 </html>
