@@ -26,12 +26,7 @@ h1 { margin:20px 0; font-size:28px; color:#004d40; text-shadow:1px 1px 2px #ccc;
 #callButtons { margin:40px 0; display:flex; flex-direction:column; align-items:center; gap:20px; }
 button.controlBtn { font-size:24px; padding:20px 40px; border:none; border-radius:15px; cursor:pointer; color:white; transition: transform 0.2s, background 0.3s, box-shadow 0.3s; box-shadow:0 4px 8px rgba(0,0,0,0.2); }
 button.controlBtn:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,0,0.2); }
-#startCall { background:#43a047; }
-#stopCall { background:#e53935; }
 
-#micStatus { font-size:24px; margin-top:30px; min-height:30px; font-weight:bold; text-align:center; transition: all 0.5s; }
-
-/* Incoming Call */
 #incomingCall { 
     display:none; 
     padding:20px; 
@@ -83,8 +78,8 @@ button.controlBtn:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,
 </div>
 
 <div id="callButtons">
-  <button id="startCall" class="controlBtn">Konuşmayı Başlat</button>
-  <button id="stopCall" class="controlBtn">Konuşmayı Kapat</button>
+  <button id="startCall" class="controlBtn">Görüşmeyi Başlat</button>
+  <button id="stopCall" class="controlBtn">Çağrıyı Bitir</button>
 </div>
 
 <div id="micStatus"></div>
@@ -110,6 +105,8 @@ document.addEventListener('DOMContentLoaded', ()=> {
     const stopBtn = document.getElementById('stopCall');
     const micStatus = document.getElementById('micStatus');
 
+    let ringtone;
+
     // MQTT bağlantısı
     const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{
       username:'kemal123', 
@@ -120,8 +117,8 @@ document.addEventListener('DOMContentLoaded', ()=> {
       console.log('MQTT Bağlandı');
       client.subscribe('wifiStatus');
       client.subscribe('micStatus');
-      client.subscribe('incomingCall'); // Çağrı kanalı
-      client.subscribe('callEnd');      // Çağrı bitiş kanalı
+      client.subscribe('incomingCall');
+      client.subscribe('callEnd');
     });
 
     client.on('message', function(topic, message){
@@ -139,22 +136,32 @@ document.addEventListener('DOMContentLoaded', ()=> {
       }
 
       if(topic==='incomingCall'){
-        // Çağrı geldi
         incomingDiv.style.display = 'block';
+        incomingDiv.innerText = 'İNTERKOM ÇALIYOR!';
         statusText.innerText = "OPERATÖR ARANIYOR";
-        // Zil sesi sadece burada çal
-        let ringtone = new Audio('https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg');
+
+        ringtone = new Audio('https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg');
+        ringtone.loop = true;
         ringtone.play();
       }
 
       if(topic==='callEnd'){
-        // Çağrı bitti veya reddedildi
         incomingDiv.style.display = 'none';
+        statusText.innerText = "";
+        if(ringtone) { ringtone.pause(); ringtone.currentTime = 0; }
       }
     });
 
-    startBtn.onclick = ()=>{ client.publish('callAnswer','ACCEPT'); incomingDiv.style.display='none'; };
-    stopBtn.onclick = ()=>{ client.publish('callAnswer','REJECT'); incomingDiv.style.display='none'; };
+    startBtn.onclick = ()=>{
+      client.publish('callAnswer','ACCEPT');
+      incomingDiv.innerText = "GÖRÜŞME BAŞLADI";
+      if(ringtone) { ringtone.pause(); ringtone.currentTime = 0; }
+    };
+    stopBtn.onclick = ()=>{
+      client.publish('callAnswer','REJECT');
+      incomingDiv.style.display = 'none';
+      if(ringtone) { ringtone.pause(); ringtone.currentTime = 0; }
+    };
   }
 
   // Login kontrolü
