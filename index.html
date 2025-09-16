@@ -3,208 +3,108 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>İnterkom Kontrol Paneli</title>
+<title>Phone2 Web Panel</title>
 <style>
 body { font-family: Arial,sans-serif; margin:0; padding:0; background: linear-gradient(to bottom,#e0f7fa,#80deea); display:flex; flex-direction:column; align-items:center; min-height:100vh; }
 h1 { margin:20px 0; font-size:28px; color:#004d40; text-shadow:1px 1px 2px #ccc; }
 
-/* Login ekran */
-#loginScreen { position:fixed; top:0; left:0; width:100%; height:100%; background:#004d40cc; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; }
-#loginBox { background:white; padding:30px 40px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.3); display:flex; flex-direction:column; gap:15px; width:90%; max-width:350px; }
-#loginBox input { padding:12px; font-size:18px; border-radius:10px; border:1px solid #ccc; }
-#loginBox button { padding:12px; font-size:18px; background:#43a047; color:white; border:none; border-radius:10px; cursor:pointer; transition: transform 0.2s; }
-#loginBox button:active{ transform:scale(0.95); }
-#loginError { color:red; font-weight:bold; text-align:center; display:none; }
+#panel { display:flex; flex-direction:column; align-items:center; }
+#statusText { font-size:22px; font-weight:bold; color:#00695c; margin-top:20px; min-height:30px; text-align:center; transition: all 0.3s; }
 
-/* Panel */
-#panel { display:none; width:100%; flex-direction:column; align-items:center; }
+#micVisualizer { width:200px; height:50px; background:#ccc; margin-top:20px; border-radius:5px; overflow:hidden; }
+#micBar { height:100%; width:0%; background:#43a047; transition: width 0.1s; }
 
-#statusBar { display:flex; justify-content:space-around; align-items:center; width:90%; max-width:500px; font-size:20px; font-weight:bold; margin:20px 0; }
-#wifiState { font-size:28px; font-weight:bold; transition: all 0.5s; }
-#callCount { font-size:26px; color:#00695c; transition: transform 0.3s; }
-
-#callButtons { margin:40px 0; display:flex; flex-direction:column; align-items:center; gap:20px; }
-button.controlBtn { font-size:24px; padding:20px 40px; border:none; border-radius:15px; cursor:pointer; color:white; transition: transform 0.2s, background 0.3s, box-shadow 0.3s; box-shadow:0 4px 8px rgba(0,0,0,0.2); }
-button.controlBtn:active { transform:scale(0.95); box-shadow:0 2px 4px rgba(0,0,0,0.2); }
-#startCall { background:#43a047; }
-#stopCall { background:#e53935; }
-
-#micStatus { font-size:24px; margin-top:30px; min-height:30px; font-weight:bold; text-align:center; transition: all 0.5s; }
-
-#remoteAudioWrapper { margin-top:20px; }
-#remoteAudio { width:300px; }
-
-.pulse { animation:pulseAnim 1s ease-out; }
-@keyframes pulseAnim { 0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
-
-@media(max-width:600px){
-  button.controlBtn{ width:80%; font-size:22px; }
-  #statusBar{ flex-direction:column; gap:15px; }
-}
+button { font-size:20px; padding:12px 30px; border:none; border-radius:10px; cursor:pointer; margin:10px; }
+#startCall { background:#43a047; color:white; }
+#stopCall { background:#e53935; color:white; }
 </style>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
 
-<!-- Login Ekranı -->
-<div id="loginScreen">
-  <div id="loginBox">
-    <h2 style="text-align:center;">Giriş Yap</h2>
-    <input type="text" id="username" placeholder="Kullanıcı Adı">
-    <input type="password" id="password" placeholder="Şifre">
-    <button id="loginBtn">Giriş</button>
-    <div id="loginError">Kullanıcı adı veya şifre yanlış!</div>
-  </div>
-</div>
+<h1>Phone2 Panel</h1>
+<div id="statusText">Durum Bekleniyor...</div>
+<button id="startCall" disabled>Konuşmayı Başlat</button>
+<button id="stopCall" disabled>Konuşmayı Kapat</button>
 
-<!-- Panel -->
-<div id="panel">
-<h1>İnterkom Kontrol Paneli</h1>
+<div id="micVisualizer"><div id="micBar"></div></div>
 
-<div id="statusBar">
-  <div>WiFi: <span id="wifiState">BAĞLANIYOR...</span></div>
-  <div>Gelen Çağrı Sayısı: <span id="callCount">0</span></div>
-</div>
-
-<div id="callButtons">
-  <button id="startCall" class="controlBtn">Konuşmayı Başlat</button>
-  <button id="stopCall" class="controlBtn">Konuşmayı Kapat</button>
-</div>
-
-<div id="micStatus"></div>
-<div id="remoteAudioWrapper">
-  <audio id="remoteAudio" autoplay></audio>
-</div>
-</div>
+<audio id="ringTone" src="https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg" preload="auto"></audio>
 
 <script>
-document.addEventListener('DOMContentLoaded', ()=> {
-  const validUser = 'Admin';
-  const validPass = 'admin135';
-
-  const loginScreen = document.getElementById('loginScreen');
-  const loginBtn = document.getElementById('loginBtn');
-  const loginError = document.getElementById('loginError');
-  const panel = document.getElementById('panel');
-
-  function initPanel(){
-    panel.style.display='flex';
-    let callCount = parseInt(localStorage.getItem('callCount') || 0);
-    document.getElementById('callCount').innerText = callCount;
-
-    // MQTT bağlantısı
-    const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{
-      username:'kemal123', 
-      password:'Kemal12345' 
-    });
-
-    client.on('connect', ()=>{
-      console.log('MQTT Bağlandı');
-      client.subscribe('wifiStatus');
-      client.subscribe('micStatus');
-      client.subscribe('relay1');
-      client.subscribe('webrtcOffer');
-      client.subscribe('webrtcCandidate');
-      client.subscribe('webrtcAnswer');
-    });
-
-    // WebRTC
-    let pc;
-    const remoteAudio = document.getElementById('remoteAudio');
-    const iceServers = [
-      { urls: "stun:stun.relay.metered.ca:80" },
-      { urls: "turn:standard.relay.metered.ca:80", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" },
-      { urls: "turn:standard.relay.metered.ca:443", username: "d648d4967e580d04e7c7b9be", credential: "evt4C7YBa+aWhUrI" }
-    ];
-
-    client.on('message', async (topic, message)=>{
-      const msg = message.toString();
-
-      if(topic==='wifiStatus'){
-        let el = document.getElementById('wifiState');
-        el.innerText = msg;
-        el.style.color = (msg==='BAĞLI')?'green':'red';
-        el.classList.add('pulse');
-        setTimeout(()=>{el.classList.remove('pulse');},500);
-      }
-
-      if(topic==='micStatus'){
-        let el = document.getElementById('micStatus');
-        el.innerText = (msg==='ON')?'Mikrofon Açık, Konuşabilirsiniz!':'Mikrofon Kapalı, Konuşma Bitti!';
-        el.style.color = (msg==='ON')?'green':'red';
-        el.classList.add('pulse');
-        setTimeout(()=>{el.classList.remove('pulse'); el.innerText='';},3000);
-      }
-
-      if(topic==='relay1'){
-        document.getElementById('micStatus').innerText = 'OPERATÖR ARANIYOR';
-        callCount++;
-        localStorage.setItem('callCount', callCount);
-        let el = document.getElementById('callCount');
-        el.innerText = callCount;
-        el.classList.add('pulse');
-        setTimeout(()=>{el.classList.remove('pulse');},300);
-
-        // WebRTC başlat
-        if(!pc){
-          pc = new RTCPeerConnection({iceServers});
-          pc.ontrack = (event)=> { remoteAudio.srcObject = event.streams[0]; };
-          pc.onicecandidate = (event)=>{ if(event.candidate) client.publish('webrtcCandidate', JSON.stringify(event.candidate)); };
-        }
-
-        const localStream = await navigator.mediaDevices.getUserMedia({audio:true});
-        localStream.getTracks().forEach(track=> pc.addTrack(track, localStream));
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        client.publish('webrtcOffer', JSON.stringify({offer}));
-      }
-
-      if(topic==='webrtcAnswer' && pc){
-        const answer = JSON.parse(msg);
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-      }
-
-      if(topic==='webrtcCandidate' && pc){
-        const candidate = JSON.parse(msg);
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    });
-
-    // Butonlar
-    document.getElementById('startCall').addEventListener('click', ()=>{
-      client.publish('relay1','TRIG');
-    });
-    document.getElementById('stopCall').addEventListener('click', ()=>{
-      client.publish('relay2','TRIG');
-      if(pc){
-        pc.getSenders().forEach(sender=>sender.track.stop());
-        pc.close();
-        pc=null;
-      }
-      remoteAudio.srcObject=null;
-      document.getElementById('micStatus').innerText='';
-    });
-  }
-
-  // Daha önce giriş yapılmışsa paneli göster
-  if(localStorage.getItem('loggedIn')==='true'){
-    loginScreen.style.display='none';
-    initPanel();
-  }
-
-  // Login kontrolü
-  loginBtn.addEventListener('click', ()=>{
-    const u = document.getElementById('username').value;
-    const p = document.getElementById('password').value;
-    if(u===validUser && p===validPass){
-      loginScreen.style.display='none';
-      localStorage.setItem('loggedIn','true');
-      initPanel();
-    } else {
-      loginError.style.display='block';
-    }
-  });
+const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt', {
+    username: 'kemal123',
+    password: 'Kemal12345'
 });
+
+let localStream, audioContext, analyser, dataArray;
+
+const statusText = document.getElementById('statusText');
+const startBtn = document.getElementById('startCall');
+const stopBtn = document.getElementById('stopCall');
+const micBar = document.getElementById('micBar');
+const ringTone = document.getElementById('ringTone');
+
+function initVisualizer(stream){
+    audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    source.connect(analyser);
+    analyser.fftSize = 64;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    requestAnimationFrame(updateVisualizer);
+}
+
+function updateVisualizer(){
+    if(analyser){
+        analyser.getByteFrequencyData(dataArray);
+        let sum = dataArray.reduce((a,b)=>a+b,0);
+        let avg = sum/dataArray.length;
+        micBar.style.width = Math.min(100, avg) + '%';
+    }
+    requestAnimationFrame(updateVisualizer);
+}
+
+// MQTT bağlantısı
+client.on('connect', ()=> {
+    console.log("Phone2 MQTT bağlı");
+    client.subscribe('relay1'); // çağrı tetiklenecek topic
+});
+
+client.on('message', async (topic, message)=>{
+    const msg = message.toString();
+
+    if(topic==='relay1' && msg==='TRIG'){
+        statusText.innerText = "OPERATÖR ARANIYOR";
+        ringTone.play();
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+            initVisualizer(localStream);
+            startBtn.disabled = false;
+            stopBtn.disabled = false;
+        } catch(err){
+            console.error("Mikrofon izni reddedildi", err);
+            statusText.innerText = "Mikrofon izni gerekli!";
+        }
+    }
+});
+
+startBtn.onclick = ()=> {
+    statusText.innerText = "Konuşma Başladı";
+    ringTone.pause(); ringTone.currentTime=0;
+};
+
+stopBtn.onclick = ()=> {
+    if(localStream){
+        localStream.getTracks().forEach(track => track.stop());
+        localStream=null;
+    }
+    statusText.innerText = "Konuşma Bitti";
+    micBar.style.width='0%';
+    startBtn.disabled=true;
+    stopBtn.disabled=true;
+};
 </script>
 
 </body>
