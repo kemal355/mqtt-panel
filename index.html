@@ -77,7 +77,7 @@ let callCount = parseInt(localStorage.getItem('callCount') || 0);
 document.getElementById('callCount').innerText = callCount;
 
 // MQTT Bağlantısı
-const client = mqtt.connect('wss://6db25b9004e64ab084db4a92d1576615.s1.eu.hivemq.cloud:8884/mqtt',{username:'kemal123', password:'Kemal12345'});
+const client = mqtt.connect('wss://c5ee8fc7589a4e05a56c2ae5a533f701.s1.eu.hivemq.cloud:8884/mqtt',{username:'Ygmur456', password:'Ygmur789'});
 
 client.on('connect', function(){
   console.log('MQTT Bağlandı');
@@ -127,3 +127,4 @@ document.getElementById('stopCall').addEventListener('click', ()=>{
 
 </body>
 </html>
+
